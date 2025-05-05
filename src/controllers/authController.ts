@@ -345,7 +345,91 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       const email: EmailOptions = {
         email: user.email,
         subject: 'Your password reset token (valid for 10 min)',
-        html: `Forgot your password? Click here to reset your password or copy and paste this link in your browser: <a href="${resetURL}">${resetURL}</a> If you didn't forget your password, please ignore this email!`,
+        html: `<!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
+                    color: #333;
+                  }
+                  .container {
+                    max-width: 600px;
+                    margin: 20px auto;
+                    background-color: #ffffff;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    overflow: hidden;
+                  }
+                  .header {
+                    background-color: #007bff;
+                    color: #ffffff;
+                    text-align: center;
+                    padding: 20px;
+                  }
+                  .header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                  }
+                  .content {
+                    padding: 30px;
+                    text-align: center;
+                  }
+                  .content p {
+                    font-size: 16px;
+                    line-height: 1.5;
+                    margin: 0 0 20px;
+                  }
+                  .button {
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background-color: #007bff;
+                    color: #ffffff;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-size: 16px;
+                    font-weight: bold;
+                  }
+                  .button:hover {
+                    background-color: #0056b3;
+                  }
+                  .link {
+                    word-break: break-all;
+                    color: #007bff;
+                    text-decoration: none;
+                    font-size: 14px;
+                    margin-top: 20px;
+                    display: inline-block;
+                  }
+                  .footer {
+                    background-color: #f4f4f4;
+                    text-align: center;
+                    padding: 20px;
+                    font-size: 14px;
+                    color: #777;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <div class="header">
+                    <h1>Password Reset Request</h1>
+                  </div>
+                  <div class="content">
+                    <p>Forgot your password? No worries! Click the button below to reset your password. This link is valid for 10 minutes.</p>
+                    <a href="${resetURL}" class="button">Reset Password</a>
+                    <p>Or copy and paste this link into your browser:</p>
+                    <a href="${resetURL}" class="link">${resetURL}</a>
+                    <p>If you didn’t request a password reset, please ignore this email.</p>
+                  </div>
+                </div>
+              </body>
+              </html>`,
       };
       
       await sendEmail(email);
