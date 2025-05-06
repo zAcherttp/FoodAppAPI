@@ -308,14 +308,16 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // 2) Generate random reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const passwordResetToken = crypto
+    // 2) Generate random 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Hash the OTP before storing in database
+    const hashedOtp = crypto
       .createHash('sha256')
-      .update(resetToken)
+      .update(otp)
       .digest('hex');
     
-    const passwordResetExpires = new Date(
+    const otpExpires = new Date(
       Date.now() + 10 * 60 * 1000
     ).toISOString(); // 10 minutes
 
@@ -323,116 +325,34 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     const { error: updateError } = await supabase
       .from('users')
       .update({
-        password_reset_token: passwordResetToken,
-        password_reset_expires: passwordResetExpires,
+        password_reset_token: hashedOtp,
+        password_reset_expires: otpExpires,
       })
       .eq('id', user.id);
 
     if (updateError) {
       res.status(500).json({
-        status: 'error',
-        message: 'Error generating reset token',
+        status: 'fail',
+        message: 'Error generating OTP',
       });
       return;
     }
 
     // 4) Send email
-    const resetURL = `${req.protocol}://${req.get(
-      'host'
-    )}/api/auth/reset-password/${resetToken}`;
-    
     try {
-      const email: EmailOptions = {
+      const emailData: EmailOptions = {
         email: user.email,
-        subject: 'Your password reset token (valid for 10 min)',
-        html: `<!DOCTYPE html>
-              <html lang="en">
-              <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                  body {
-                    font-family: Arial, sans-serif;
-                    background-color: #f4f4f4;
-                    margin: 0;
-                    padding: 0;
-                    color: #333;
-                  }
-                  .container {
-                    max-width: 600px;
-                    margin: 20px auto;
-                    background-color: #ffffff;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                    overflow: hidden;
-                  }
-                  .header {
-                    background-color: #007bff;
-                    color: #ffffff;
-                    text-align: center;
-                    padding: 20px;
-                  }
-                  .header h1 {
-                    margin: 0;
-                    font-size: 24px;
-                  }
-                  .content {
-                    padding: 30px;
-                    text-align: center;
-                  }
-                  .content p {
-                    font-size: 16px;
-                    line-height: 1.5;
-                    margin: 0 0 20px;
-                  }
-                  .button {
-                    display: inline-block;
-                    padding: 12px 24px;
-                    background-color: #007bff;
-                    color: #ffffff;
-                    text-decoration: none;
-                    border-radius: 5px;
-                    font-size: 16px;
-                    font-weight: bold;
-                  }
-                  .button:hover {
-                    background-color: #0056b3;
-                  }
-                  .link {
-                    word-break: break-all;
-                    color: #007bff;
-                    text-decoration: none;
-                    font-size: 14px;
-                    margin-top: 20px;
-                    display: inline-block;
-                  }
-                  .footer {
-                    background-color: #f4f4f4;
-                    text-align: center;
-                    padding: 20px;
-                    font-size: 14px;
-                    color: #777;
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="container">
-                  <div class="header">
-                    <h1>Password Reset Request</h1>
-                  </div>
-                  <div class="content">
-                    <p>Forgot your password? No worries! Click the button below to reset your password. This link is valid for 10 minutes.</p>
-                    <a href="${resetURL}" class="button">Reset Password</a>
-                    <p>Or copy and paste this link into your browser:</p>
-                    <a href="${resetURL}" class="link">${resetURL}</a>
-                    <p>If you didn’t request a password reset, please ignore this email.</p>
-                  </div>
-                </div>
-              </body>
-              </html>`,
+        subject: 'Your password reset OTP (valid for 10 min)',
+        html: `
+          <h2>Password Reset</h2>
+          <p>You requested to reset your password.</p>
+          <p>Your OTP code is: <strong>${otp}</strong></p>
+          <p>This code is valid for 10 minutes.</p>
+          <p>If you didn't request a password reset, please ignore this email.</p>
+        `,
       };
       
-      await sendEmail(email);
+      await sendEmail(emailData);
 
       res.status(200).json({
         status: 'success',
@@ -462,31 +382,98 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// Reset password
-export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+// verify OTP
+export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
   try {
-    // 1) Get user based on the token
-    const token = req.params.token;
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('password_reset_token', hashedToken)
-      .gt('password_reset_expires', new Date().toISOString())
-      .single();
+    const { email, otp } = req.body;
 
-    // 2) If token has not expired, and there is user, set the new password
-    if (error || !user) {
+    if (!email || !otp) {
       res.status(400).json({
         status: 'fail',
-        message: 'Token is invalid or has expired',
+        message: 'Please provide email and OTP',
       });
       return;
     }
 
-    // 3) Update password
-    const hashedPassword = await bcrypt.hash(req.body.password, 12);
+    // 1) Hash the provided OTP
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+    
+    // 2) Get user based on email and check OTP
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password_reset_token', hashedOtp)
+      .gt('password_reset_expires', new Date().toISOString())
+      .single();
+
+    // 3) If OTP has not expired and is valid, return success
+    if (error || !user) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Invalid OTP or OTP has expired',
+      });
+      return;
+    }
+
+    // OTP is valid
+    res.status(200).json({
+      status: 'success',
+      message: 'OTP verified successfully',
+      isValid: true
+    });
+    
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error verifying OTP',
+    });
+  }
+};
+
+// Reset password
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, password, confirmPassword } = req.body;
+
+    if (!email || !password || !confirmPassword) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide email, password, and password confirmation',
+      });
+      return;
+    }
+    
+    // Check if password and confirmPassword match
+    if (password !== confirmPassword) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Passwords do not match',
+      });
+      return;
+    }
+    
+    // Get user based on email and check if they have an active reset token
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .not('password_reset_token', 'is', null)
+      .gt('password_reset_expires', new Date().toISOString())
+      .single();
+
+    // 3) If reset token has not expired and is valid, set the new password
+    if (error || !user) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Invalid reset session or session has expired. Please verify OTP again.',
+      });
+      return;
+    }
+
+    // 4) Update password
+    const hashedPassword = await bcrypt.hash(password, 12);
     
     const { error: updateError } = await supabase
       .from('users')
@@ -505,7 +492,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // 4) Log the user in, send JWT
+    // 5) Log the user in, send JWT
     await createSendToken(user, req, 200, res);
   } catch (err) {
     console.error(err);

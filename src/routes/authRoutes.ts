@@ -10,7 +10,8 @@ router.post('/signup', authController.signup);
 router.post('/login', authController.login);
 router.post('/logout', authMiddleware.protect, authController.logout);
 router.post('/forgot-password', authController.forgotPassword);
-router.patch('/reset-password/:token', authController.resetPassword);
+router.post('/verify-otp/', authController.verifyOtp);
+router.patch('/reset-password', authController.resetPassword);
 
 // Get user profile
 router.get('/me', authMiddleware.protect, (req: RequestWithUser, res: Response) => {
