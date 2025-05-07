@@ -502,3 +502,72 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     });
   }
 };
+
+// Update user profile
+export const updateProfile = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const { name, email, date_of_birth, country } = req.body;
+
+    // 1) Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to update your profile.',
+      });
+      return;
+    }
+
+    // 2) Check if email is provided and if it already exists for another user
+    if (email) {
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .neq('id', req.user.id)
+        .single();
+
+      if (existingUser) {
+        res.status(400).json({
+          status: 'fail',
+          message: 'This email is already used by another account.',
+        });
+        return;
+      }
+    }
+
+    // 3) Update user in Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        name,
+        email,
+        date_of_birth,
+        country,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', req.user.id)
+      .select();
+
+    if (error || !data || data.length === 0) {
+      res.status(400).json({
+        status: 'fail',
+        message: error?.message || 'An error occurred while updating the user information.',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: data[0],
+      },
+      message: 'Profile updated successfully.'
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while updating the profile.',
+    });
+  }
+};

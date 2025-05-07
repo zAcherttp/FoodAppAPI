@@ -12,6 +12,7 @@ router.post('/logout', authMiddleware.protect, authController.logout);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/verify-otp/', authController.verifyOtp);
 router.patch('/reset-password', authController.resetPassword);
+router.patch('/update-profile', authMiddleware.protect, authController.updateProfile);
 
 // Get user profile
 router.get('/me', authMiddleware.protect, (req: RequestWithUser, res: Response) => {

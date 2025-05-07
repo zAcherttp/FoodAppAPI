@@ -5,6 +5,8 @@ export interface User {
     password?: string;
     password_reset_token?: string | null;
     password_reset_expires?: string | null;
+    date_of_birth?: string | null;
+    country?: string | null;
     created_at?: string;
     updated_at?: string;
   }
@@ -41,4 +43,5 @@ export interface User {
     headers: any;
     user?: User;
     session?: Session;
+    body: any;
   }
