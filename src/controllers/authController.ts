@@ -571,3 +571,94 @@ export const updateProfile = async (req: RequestWithUser, res: Response): Promis
     });
   }
 };
+
+// Change password
+export const updatePassword = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+    // 1) Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to change your password.',
+      });
+      return;
+    }
+
+    // 2) Check if current password is provided
+    if (!currentPassword) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide your current password.',
+      });
+      return;
+    }
+
+    // 3) Check if new password and confirm password match
+    if (newPassword !== confirmNewPassword) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'New passwords do not match.',
+      });
+      return;
+    }
+
+    // 4) Get user from Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error || !user) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'User not found.',
+      });
+      return;
+    }
+
+    // 5) Check if current password is correct
+    const isCorrect = await bcrypt.compare(currentPassword, user.password as string);
+    
+    if (!isCorrect) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'Your current password is incorrect. Please try again.',
+      });
+      return;
+    }
+
+    // 6) Hash the new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+    // 7) Update the password in Supabase
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        password: hashedNewPassword,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', req.user.id);
+
+    if (updateError) {
+      res.status(500).json({
+        status: 'error',
+        message: 'Error updating password',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Password updated successfully.',
+    });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while changing the password.',
+    });
+  }
+}
