@@ -1,3 +1,5 @@
+import { Request } from 'express';
+
 export interface User {
     id: string;
     name: string;
@@ -38,10 +40,26 @@ export interface User {
     html?: string;
   }
   
-  export interface RequestWithUser extends Express.Request {
+  export interface RequestWithUser extends Request {
+    user?: {
+      id: string;
+      name: string;
+      email: string;
+      // Add other user properties if needed
+    };
     params: any;
     headers: any;
-    user?: User;
     session?: Session;
     body: any;
+  }
+
+  export interface Recipe {
+    id: string;
+    title: string;
+    ingredients: string[];
+    instructions: string[];
+    image_url?: string;
+    created_at?: string;
+    updated_at?: string;
+    author?: string;
   }

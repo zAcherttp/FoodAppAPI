@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import supabase from './config/supabase';
 
 import authRoutes from './routes/authRoutes';
+import recipeRoutes from './routes/recipeRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -18,6 +19,7 @@ export const createServer = (): Application => {
   app.use(express.urlencoded({ extended: true }));
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/recipes', recipeRoutes);
 
   app.get('/', (req, res) => {
     res.send('API is running');
