@@ -9,5 +9,7 @@ const router = express.Router();
 router.post('/add-recipe', authMiddleware.protect, recipeController.addRecipe);
 router.get('/get-recipe-title', authMiddleware.protect, recipeController.getRecipesByTitle);
 router.get('/get-recipe-lasted', authMiddleware.protect, recipeController.getLatestRecipes);
+router.get('/get-recipe-id', authMiddleware.protect, recipeController.getRecipeById);
+router.get('/get-recipe-author', authMiddleware.protect, recipeController.getRecipesByAuthor);
 
 export default router;
