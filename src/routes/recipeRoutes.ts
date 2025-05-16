@@ -8,8 +8,13 @@ const router = express.Router();
 
 router.post('/add-recipe', authMiddleware.protect, recipeController.addRecipe);
 router.get('/get-recipe-title', authMiddleware.protect, recipeController.getRecipesByTitle);
-router.get('/get-recipe-lasted', authMiddleware.protect, recipeController.getLatestRecipes);
+router.get('/get-recipe-latest', authMiddleware.protect, recipeController.getLatestRecipes);
 router.get('/get-recipe-id', authMiddleware.protect, recipeController.getRecipeById);
 router.get('/get-recipe-author', authMiddleware.protect, recipeController.getRecipesByAuthor);
+router.get('/get-random-recipe', authMiddleware.protect, recipeController.getRandomRecipes);
+router.patch('/comment-recipe', authMiddleware.protect, recipeController.commentRecipe);
+router.get('/get-recipe-comments', authMiddleware.protect, recipeController.getCommentsRecipe);
+router.patch('/rating-recipe', authMiddleware.protect, recipeController.ratingRecipe);
+router.get('/get-recipe-rating', authMiddleware.protect, recipeController.getRatingRecipe);
 
 export default router;

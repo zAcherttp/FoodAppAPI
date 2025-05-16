@@ -11,6 +11,8 @@ export interface User {
     country?: string | null;
     created_at?: string;
     updated_at?: string;
+    url_avatar?: string | null;
+    saved_recipes?: string[] | null;
   }
   
   export interface Session {
@@ -53,13 +55,29 @@ export interface User {
     body: any;
   }
 
+  export interface Comment {
+    id: string;
+    content: string;
+    author: string;
+    created_at: string;
+  }
+
+  export interface Rating {
+    id: string;
+    user_id: string;
+    rating: number;
+    created_at: string;
+  }
+
   export interface Recipe {
     id: string;
     title: string;
     ingredients: string[];
     instructions: string[];
     image_url?: string;
+    author?: string;
+    comments?: Comment[];
+    rating?: Rating[];
     created_at?: string;
     updated_at?: string;
-    author?: string;
   }
