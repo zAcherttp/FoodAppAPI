@@ -506,7 +506,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 // Update user profile
 export const updateProfile = async (req: RequestWithUser, res: Response): Promise<void> => {
   try {
-    const { name, email, date_of_birth, country } = req.body;
+    const { name, email, date_of_birth, country, url_avatar} = req.body;
 
     // 1) Check if user is logged in
     if (!req.user || !req.user.id) {
@@ -543,6 +543,7 @@ export const updateProfile = async (req: RequestWithUser, res: Response): Promis
         email,
         date_of_birth,
         country,
+        url_avatar,
         updated_at: new Date().toISOString(),
       })
       .eq('id', req.user.id)
@@ -571,6 +572,7 @@ export const updateProfile = async (req: RequestWithUser, res: Response): Promis
     });
   }
 };
+
 
 // Change password
 export const updatePassword = async (req: RequestWithUser, res: Response): Promise<void> => {
