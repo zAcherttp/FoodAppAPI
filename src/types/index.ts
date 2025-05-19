@@ -80,4 +80,6 @@ export interface User {
     rating?: Rating[];
     created_at?: string;
     updated_at?: string;
+    tags?: string[];
+    time?: string;
   }
