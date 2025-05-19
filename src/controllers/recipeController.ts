@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import supabase from '../config/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { Recipe, RequestWithUser, Rating } from '../types';
 
 // Add a new recipe
@@ -120,7 +121,7 @@ export const getRecipesByTitle = async (req: Request, res: Response): Promise<vo
 // Get recipe by id
 export const getRecipeById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.body;
+    const { id } = req.query;
 
     // 1) Validate id
     if (!id || typeof id !== 'string') {
@@ -276,8 +277,10 @@ export const getRandomRecipes = async (req: Request, res: Response): Promise<voi
     const { data, error } = await supabase
       .from('recipes')
       .select('*')
-      .order('random()')
-      .limit(10);    // 2) Check for errors
+      .order('id', { ascending: false })
+      .limit(10);
+
+    // 2) Check for errors
     if (error || !data) {
       console.error('Error fetching recipes:', error);
       res.status(500).json({
