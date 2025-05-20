@@ -9,7 +9,7 @@ import { Recipe, RequestWithUser, Rating } from '../types';
 // Add a new recipe
 export const addRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
     try {
-        const { title, ingredients, instructions, image_url } = req.body;
+        const { title, ingredients, instructions, image_url, tags, time } = req.body;
     
         // 1) Validate input
         if (!title || !ingredients || !instructions) {
@@ -28,6 +28,8 @@ export const addRecipe = async (req: RequestWithUser, res: Response): Promise<vo
         instructions,
         image_url,
         author: req.user?.name, 
+        tags,
+        time,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
         };
@@ -67,7 +69,7 @@ export const addRecipe = async (req: RequestWithUser, res: Response): Promise<vo
 // Get recipes with title
 export const getRecipesByTitle = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title } = req.body;
+    const { title } = req.query;
 
     // 1) Validate title
     if (!title || typeof title !== 'string') {
@@ -175,7 +177,7 @@ export const getRecipeById = async (req: Request, res: Response): Promise<void> 
 // Get recipes by author
 export const getRecipesByAuthor = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { author } = req.body;
+    const { author } = req.query;
 
     // 1) Validate author
     if (!author || typeof author !== 'string') {
@@ -469,7 +471,7 @@ export const commentRecipe = async (req: RequestWithUser, res: Response): Promis
 // Get all comments of a recipe
 export const getCommentsRecipe = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.body;
+    const { id } = req.query;
 
     // 1) Validate input
     if (!id) {
@@ -631,7 +633,7 @@ export const ratingRecipe = async (req: RequestWithUser, res: Response): Promise
 // Get rating of a recipe
 export const getRatingRecipe = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.body;
+    const { id } = req.query;
 
     // 1) Validate input
     if (!id) {
