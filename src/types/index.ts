@@ -60,6 +60,12 @@ export interface User {
     content: string;
     author: string;
     created_at: string;
+    likes?: number;
+    dislikes?: number;
+    userLiked?: boolean;
+    userDisliked?: boolean;
+    likedBy?: string[]; // Array of user IDs who liked this comment
+    dislikedBy?: string[]; // Array of user IDs who disliked this comment
   }
 
   export interface Rating {

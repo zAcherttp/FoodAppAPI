@@ -16,5 +16,7 @@ router.patch('/comment-recipe', authMiddleware.protect, recipeController.comment
 router.get('/get-recipe-comments', authMiddleware.protect, recipeController.getCommentsRecipe);
 router.patch('/rating-recipe', authMiddleware.protect, recipeController.ratingRecipe);
 router.get('/get-recipe-rating', authMiddleware.protect, recipeController.getRatingRecipe);
+router.patch('/like-comment', authMiddleware.protect, recipeController.likeComment);
+router.patch('/dislike-comment', authMiddleware.protect, recipeController.dislikeComment);
 
 export default router;

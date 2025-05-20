@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import supabase from '../config/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Recipe, RequestWithUser, Rating } from '../types';
+import { Recipe, RequestWithUser, Rating, Comment, User } from '../types';
 
 // Add a new recipe
 export const addRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
@@ -689,3 +689,224 @@ export const getRatingRecipe = async (req: Request, res: Response): Promise<void
     });
   }
 };
+
+
+// Like a comment of a recipe
+export const likeComment = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const { recipeId, commentId } = req.body;
+    const userId = req.user?.id;
+
+    // 1) Validate input
+    if (!recipeId || !commentId) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide all required fields: recipeId, commentId'
+      });
+      return;
+    }
+
+    // 2) Fetch the existing recipe from Supabase
+    const { data: existingRecipe, error: fetchError } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('id', recipeId)
+      .single();
+
+    // 3) Check for errors
+    if (fetchError || !existingRecipe) {
+      console.error('Error fetching recipe:', fetchError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error fetching recipe'
+      });
+      return;
+    }
+
+    // 4) Find the comment to like
+    const commentToUpdate = existingRecipe.comments?.find((comment: Comment) => comment.id === commentId);
+
+    if (!commentToUpdate) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'Comment not found'
+      });
+      return;
+    }
+
+    // Initialize arrays if they don't exist
+    if (!commentToUpdate.likedBy) commentToUpdate.likedBy = [];
+    if (!commentToUpdate.dislikedBy) commentToUpdate.dislikedBy = [];
+    
+    // Check if user already liked this comment
+    const alreadyLiked = commentToUpdate.likedBy.includes(userId);
+    
+    // Check if user already disliked this comment
+    const alreadyDisliked = commentToUpdate.dislikedBy.includes(userId);
+
+    // 5) Handle the like action
+    if (alreadyLiked) {
+      // User is unliking - remove from likedBy and decrease count
+      commentToUpdate.likedBy = commentToUpdate.likedBy.filter((id: string) => id !== userId);
+      commentToUpdate.likes = Math.max(0, (commentToUpdate.likes || 1) - 1);
+    } else {
+      // User is liking - first remove any dislike if it exists
+      if (alreadyDisliked) {
+        commentToUpdate.dislikedBy = commentToUpdate.dislikedBy.filter((id: string )=> id !== userId);
+        commentToUpdate.dislikes = Math.max(0, (commentToUpdate.dislikes || 1) - 1);
+      }
+      
+      // Then add the like
+      commentToUpdate.likedBy.push(userId);
+      commentToUpdate.likes = (commentToUpdate.likes || 0) + 1;
+    }
+
+    // 6) Update the recipe in Supabase
+    const { data, error: updateError } = await supabase
+      .from('recipes')
+      .update(existingRecipe)
+      .eq('id', recipeId)
+      .select();
+
+    // 7) Check for errors
+    if (updateError || !data || data.length === 0) {
+      console.error('Error updating recipe:', updateError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error updating recipe'
+      });
+      return;
+    }
+
+    // 8) Set the userLiked/userDisliked flags for this user's response
+    const updatedComment = data[0].comments?.find((comment: Comment) => comment.id === commentId);
+    if (updatedComment) {
+      updatedComment.userLiked = updatedComment.likedBy?.includes(userId) || false;
+      updatedComment.userDisliked = updatedComment.dislikedBy?.includes(userId) || false;
+    }
+
+    // 9) Return the updated recipe
+    res.status(200).json({
+      status: 'success',
+      data: {
+        recipe: data[0]
+      }
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Something went wrong'
+    });
+  }
+}
+
+// Dislike a comment of a recipe
+export const dislikeComment = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const { recipeId, commentId } = req.body;
+    const userId = req.user?.id; // Get the current user's ID
+
+    // 1) Validate input
+    if (!recipeId || !commentId) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide all required fields: recipeId, commentId'
+      });
+      return;
+    }
+
+    // 2) Fetch the existing recipe from Supabase
+    const { data: existingRecipe, error: fetchError } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('id', recipeId)
+      .single();
+
+    // 3) Check for errors
+    if (fetchError || !existingRecipe) {
+      console.error('Error fetching recipe:', fetchError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error fetching recipe'
+      });
+      return;
+    }
+
+    // 4) Find the comment to dislike
+    const commentToUpdate = existingRecipe.comments?.find((comment: Comment) => comment.id === commentId);
+
+    if (!commentToUpdate) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'Comment not found'
+      });
+      return;
+    }
+
+    // Initialize arrays if they don't exist
+    if (!commentToUpdate.likedBy) commentToUpdate.likedBy = [];
+    if (!commentToUpdate.dislikedBy) commentToUpdate.dislikedBy = [];
+    
+    // Check if user already disliked this comment
+    const alreadyDisliked = commentToUpdate.dislikedBy.includes(userId);
+    
+    // Check if user already liked this comment
+    const alreadyLiked = commentToUpdate.likedBy.includes(userId);
+
+    // 5) Handle the dislike action
+    if (alreadyDisliked) {
+      // User is un-disliking - remove from dislikedBy and decrease count
+      commentToUpdate.dislikedBy = commentToUpdate.dislikedBy.filter((id: string) => id !== userId);
+      commentToUpdate.dislikes = Math.max(0, (commentToUpdate.dislikes || 1) - 1);
+    } else {
+      // User is disliking - first remove any like if it exists
+      if (alreadyLiked) {
+        commentToUpdate.likedBy = commentToUpdate.likedBy.filter((id: string )=> id !== userId);
+        commentToUpdate.likes = Math.max(0, (commentToUpdate.likes || 1) - 1);
+      }
+      
+      // Then add the dislike
+      commentToUpdate.dislikedBy.push(userId);
+      commentToUpdate.dislikes = (commentToUpdate.dislikes || 0) + 1;
+    }
+
+    // 6) Update the recipe in Supabase
+    const { data, error: updateError } = await supabase
+      .from('recipes')
+      .update(existingRecipe)
+      .eq('id', recipeId)
+      .select();
+
+    // 7) Check for errors
+    if (updateError || !data || data.length === 0) {
+      console.error('Error updating recipe:', updateError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error updating recipe'
+      });
+      return;
+    }
+
+    // 8) Set the userLiked/userDisliked flags for this user's response
+    const updatedComment = data[0].comments?.find((comment: Comment) => comment.id === commentId);
+    if (updatedComment) {
+      updatedComment.userLiked = updatedComment.likedBy?.includes(userId) || false;
+      updatedComment.userDisliked = updatedComment.dislikedBy?.includes(userId) || false;
+    }
+
+    // 9) Return the updated recipe
+    res.status(200).json({
+      status: 'success',
+      data: {
+        recipe: data[0]
+      }
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Something went wrong'
+    });
+  }
+}
