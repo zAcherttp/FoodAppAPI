@@ -14,6 +14,7 @@ router.post('/verify-otp/', authController.verifyOtp);
 router.patch('/reset-password', authController.resetPassword);
 router.patch('/update-profile', authMiddleware.protect, authController.updateProfile);
 router.patch('/update-password', authMiddleware.protect, authController.updatePassword);
+router.get('/get-user-byID', authMiddleware.protect, authController.getUserById);
 
 
 // Get user profile

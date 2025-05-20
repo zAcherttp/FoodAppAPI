@@ -664,3 +664,50 @@ export const updatePassword = async (req: RequestWithUser, res: Response): Promi
     });
   }
 }
+
+// Get user by id
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.query;
+
+    // Check if userId is provided
+    if (!id) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide a user ID.',
+      });
+      return;
+    }
+
+    // Get user from Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !user) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'User not found.',
+      });
+      return;
+    }
+
+    // Remove password from output
+    delete user.password;
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user,
+      },
+    });
+  } catch (err) {
+    console.error('Error getting user by ID:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while fetching the user.',
+    });
+  }
+};
