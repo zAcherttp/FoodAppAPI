@@ -5,66 +5,69 @@ import crypto from 'crypto';
 import supabase from '../config/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Recipe, RequestWithUser, Rating, Comment, User } from '../types';
+import dotenv from 'dotenv';
+import path from 'path';
+
 
 // Add a new recipe
-export const addRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
-    try {
-        const { title, ingredients, instructions, image_url, tags, time } = req.body;
+// export const addRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
+//     try {
+//         const { title, ingredients, instructions, image_url, tags, time } = req.body;
     
-        // 1) Validate input
-        if (!title || !ingredients || !instructions) {
-        res.status(400).json({
-            status: 'fail',
-            message: 'Please provide all required fields: title, ingredients, instructions'
-        });
-        return;
-        }
+//         // 1) Validate input
+//         if (!title || !ingredients || !instructions) {
+//         res.status(400).json({
+//             status: 'fail',
+//             message: 'Please provide all required fields: title, ingredients, instructions'
+//         });
+//         return;
+//         }
     
-        // 2) Create a new recipe object
-        const newRecipe: Recipe = {
-        id: crypto.randomUUID(),
-        title,
-        ingredients,
-        instructions,
-        image_url,
-        author: req.user?.name, 
-        tags,
-        time,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-        };
+//         // 2) Create a new recipe object
+//         const newRecipe: Recipe = {
+//         id: crypto.randomUUID(),
+//         title,
+//         ingredients,
+//         instructions,
+//         image_url,
+//         author: req.user?.name, 
+//         tags,
+//         time,
+//         created_at: new Date().toISOString(),
+//         updated_at: new Date().toISOString()
+//         };
     
-        // 3) Insert the recipe into Supabase
-        const { data, error } = await supabase
-        .from('recipes')
-        .insert([newRecipe])
-        .select();
+//         // 3) Insert the recipe into Supabase
+//         const { data, error } = await supabase
+//         .from('recipes')
+//         .insert([newRecipe])
+//         .select();
     
-        // 4) Check for errors
-        if (error || !data || data.length === 0) {
-            console.error('Error adding recipe:', error);
-            res.status(500).json({
-                status: 'error',
-                message: 'Error adding recipe'
-            });
-            return;
-        }
+//         // 4) Check for errors
+//         if (error || !data || data.length === 0) {
+//             console.error('Error adding recipe:', error);
+//             res.status(500).json({
+//                 status: 'error',
+//                 message: 'Error adding recipe'
+//             });
+//             return;
+//         }
     
-        // 5) Return the added recipe
-        res.status(201).json({
-        status: 'success',
-        data: {
-            recipe: data[0]
-        }
-        });
-    } catch (err) {
-        console.error('Error:', err);
-        res.status(500).json({
-        status: 'error',
-        message: 'Something went wrong'
-        });
-    }
-}
+//         // 5) Return the added recipe
+//         res.status(201).json({
+//         status: 'success',
+//         data: {
+//             recipe: data[0]
+//         }
+//         });
+//     } catch (err) {
+//         console.error('Error:', err);
+//         res.status(500).json({
+//         status: 'error',
+//         message: 'Something went wrong'
+//         });
+//     }
+// }
 
 // Get recipes with title
 export const getRecipesByTitle = async (req: Request, res: Response): Promise<void> => {
@@ -425,7 +428,7 @@ export const commentRecipe = async (req: RequestWithUser, res: Response): Promis
     const newComment = {
       id: crypto.randomUUID(),
       content: comment,
-      author: req.user?.name || 'Anonymous',
+      author_id: req.user?.id || 'Anonymous',
       created_at: new Date().toISOString()
     };
 
@@ -690,7 +693,6 @@ export const getRatingRecipe = async (req: Request, res: Response): Promise<void
   }
 };
 
-
 // Like a comment of a recipe
 export const likeComment = async (req: RequestWithUser, res: Response): Promise<void> => {
   try {
@@ -909,4 +911,250 @@ export const dislikeComment = async (req: RequestWithUser, res: Response): Promi
       message: 'Something went wrong'
     });
   }
+}
+
+// Upload recipe image to Supabase Storage and update recipe
+export const uploadRecipeImage = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    // 1) Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to upload a recipe image.',
+      });
+      return;
+    }
+
+    // 2) Check if file is provided
+    if (!req.file) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide an image file.',
+      });
+      return;
+    }
+
+    // 3) Check if recipe ID is provided
+    const recipeId = req.query.id;
+    if (!recipeId) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide a recipe ID.',
+      });
+      return;
+    }
+
+    // 4) Verify the recipe exists
+    const { data: recipeData, error: recipeError } = await supabase
+      .from('recipes')
+      .select('id')
+      .eq('id', recipeId)
+      .single();
+
+    if (recipeError || !recipeData) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'Recipe not found.',
+      });
+      return;
+    }
+
+    // 5) Check permission: if the author of the recipe is the same as the logged in user
+    const { data: authorData, error: authorError } = await supabase
+      .from('recipes')
+      .select('author')
+      .eq('id', recipeId)
+      .single();
+
+    // Check for errors or missing author
+    if (authorError || !authorData) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'Recipe author not found.',
+      });
+      return;
+    }
+
+    // Check if author of recipe is the same as logged in user
+    if (authorData.author !== req.user.name) {
+      res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to upload an image for this recipe.',
+      });
+      return;
+    }
+
+    // 6) Generate a unique filename
+    const fileName = `recipe-${recipeId}-${Date.now()}${path.extname(req.file.originalname)}`;
+    const filePath = `Image Recipe/${fileName}`;
+
+    // 7) Upload to Supabase Storage (using existing avatars bucket)
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('avatars')
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true // Replace if file exists
+      });
+
+    if (uploadError) {
+      console.error('Error uploading recipe image:', uploadError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error uploading recipe image to storage'
+      });
+      return;
+    }
+
+    // 8) Get the public URL for the uploaded file
+    const { data: publicUrlData } = supabase
+      .storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    // 9) Update recipe's image_url field in database
+    const { data: updatedRecipe, error: updateError } = await supabase
+      .from('recipes')
+      .update({
+        image_url: publicUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recipeId)
+      .select();
+
+    if (updateError || !updatedRecipe || updatedRecipe.length === 0) {
+      console.error('Error updating recipe image URL:', updateError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error updating recipe with image URL'
+      });
+      return;
+    }
+
+    // 10) Return success with updated recipe data
+    res.status(200).json({
+      status: 'success',
+      data: {
+        recipe: updatedRecipe[0]
+      },
+      message: 'Recipe image uploaded successfully'
+    });
+
+  } catch (err) {
+    console.error('Error in recipe image upload:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while uploading the recipe image',
+    });
+  }
+};
+
+// Add a new recipe with image upload
+export const addRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
+    try {
+        const { title, tags, time } = req.body;
+
+        let ingredients = req.body.ingredients;
+        let instructions = req.body.instructions;
+
+        // Parse the JSON strings into actual arrays
+        if (typeof ingredients === 'string') {
+          ingredients = JSON.parse(ingredients);
+        }
+        if (typeof instructions === 'string') {
+          instructions = JSON.parse(instructions);
+        }
+    
+        // 1) Validate input
+        if (!title || !ingredients || !instructions) {
+        res.status(400).json({
+            status: 'fail',
+            message: 'Please provide all required fields: title, ingredients, instructions'
+        });
+        return;
+        }
+
+        // 2) Generate a new recipe ID
+        const recipeId = crypto.randomUUID();
+        let image_url: string | undefined = undefined;
+
+        // 3) If there's an image file, upload it first
+        if (req.file) {
+          // Generate a unique filename
+          const fileName = `recipe-${recipeId}-${Date.now()}${path.extname(req.file.originalname)}`;
+          const filePath = `Image Recipe/${fileName}`;
+
+          // Upload to Supabase Storage
+          const { data: uploadData, error: uploadError } = await supabase
+            .storage
+            .from('avatars')
+            .upload(filePath, req.file.buffer, {
+              contentType: req.file.mimetype,
+              upsert: true // Replace if file exists
+            });
+
+          if (uploadError) {
+            console.error('Error uploading recipe image:', uploadError);
+            res.status(500).json({
+              status: 'error',
+              message: 'Error uploading recipe image to storage'
+            });
+            return;
+          }
+
+          // Get the public URL for the uploaded file
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+
+          image_url = publicUrlData.publicUrl;
+        }
+    
+        // 4) Create a new recipe object
+        const newRecipe: Recipe = {
+          id: recipeId,
+          title,
+          ingredients,
+          instructions,
+          image_url, // Use the uploaded image URL or null
+          author: req.user?.name, 
+          tags,
+          time,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+    
+        // 5) Insert the recipe into Supabase
+        const { data, error } = await supabase
+          .from('recipes')
+          .insert([newRecipe])
+          .select();
+    
+        // 6) Check for errors
+        if (error || !data || data.length === 0) {
+            console.error('Error adding recipe:', error);
+            res.status(500).json({
+                status: 'error',
+                message: 'Error adding recipe'
+            });
+            return;
+        }
+    
+        // 7) Return the added recipe
+        res.status(201).json({
+          status: 'success',
+          data: {
+              recipe: data[0]
+          }
+        });
+    } catch (err) {
+        console.error('Error:', err);
+        res.status(500).json({
+          status: 'error',
+          message: 'Something went wrong'
+        });
+    }
 }

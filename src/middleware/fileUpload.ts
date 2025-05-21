@@ -51,6 +51,74 @@ export const handleMulterErrors = (req: Request, res: Response, next: NextFuncti
   });
 };
 
+// Multer configuration for recipe image uploads
+export const uploadRecipeImage = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image! Please upload only images.'));
+    }
+  }
+});
+
+// Middleware to handle Multer errors for recipe images
+export const handleRecipeImageErrors = (req: Request, res: Response, next: NextFunction) => {
+  uploadRecipeImage.single('imageRecipe')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred during upload
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'File too large. Maximum size is 5MB.',
+        });
+      }
+      return res.status(400).json({
+        status: 'fail',
+        message: `File upload error: ${err.message}`,
+      });
+    } else if (err) {
+      // A general error occurred
+      return res.status(400).json({
+        status: 'fail',
+        message: err.message || 'File upload error',
+      });
+    }
+    next();
+  });
+};
+
+// Middleware to handle Multer file upload for recipe creation
+export const handleRecipeCreationImage = (req: Request, res: Response, next: NextFunction) => {
+  upload.single('imageRecipe')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred during upload
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'File too large. Maximum size is 5MB.',
+        });
+      }
+      return res.status(400).json({
+        status: 'fail',
+        message: `File upload error: ${err.message}`,
+      });
+    } else if (err) {
+      // A general error occurred
+      return res.status(400).json({
+        status: 'fail',
+        message: err.message || 'File upload error',
+      });
+    }
+    next();
+  });
+};
+
 // Generate a unique filename for uploaded images
 export const generateUniqueFilename = (originalname: string): string => {
   const fileExtension = path.extname(originalname);

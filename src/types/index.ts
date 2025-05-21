@@ -58,7 +58,7 @@ export interface User {
   export interface Comment {
     id: string;
     content: string;
-    author: string;
+    author_id: string;
     created_at: string;
     likes?: number;
     dislikes?: number;
