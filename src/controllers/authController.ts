@@ -6,6 +6,7 @@ import supabase from '../config/supabase';
 import sendEmail from '../utils/emailService';
 import { User, Session, RequestWithUser, DecodedToken, EmailOptions } from '../types';
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
 
@@ -572,7 +573,6 @@ export const updateProfile = async (req: RequestWithUser, res: Response): Promis
     });
   }
 };
-
 
 // Change password
 export const updatePassword = async (req: RequestWithUser, res: Response): Promise<void> => {

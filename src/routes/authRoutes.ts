@@ -18,8 +18,6 @@ router.patch('/update-password', authMiddleware.protect, authController.updatePa
 router.get('/get-user-byID', authMiddleware.protect, authController.getUserById);
 router.post('/upload-avatar', authMiddleware.protect, handleMulterErrors, authController.uploadAvatar);
 
-
-
 // Get user profile
 router.get('/me', authMiddleware.protect, (req: RequestWithUser, res: Response) => {
   res.status(200).json({
