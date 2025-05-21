@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import * as authController from '../controllers/authController';
 import * as authMiddleware from '../middleware/authMiddleware';
+import { upload, handleMulterErrors } from '../middleware/fileUpload';
 import supabase from '../config/supabase';
 import { RequestWithUser } from '../types';
 
@@ -15,6 +16,8 @@ router.patch('/reset-password', authController.resetPassword);
 router.patch('/update-profile', authMiddleware.protect, authController.updateProfile);
 router.patch('/update-password', authMiddleware.protect, authController.updatePassword);
 router.get('/get-user-byID', authMiddleware.protect, authController.getUserById);
+router.post('/upload-avatar', authMiddleware.protect, handleMulterErrors, authController.uploadAvatar);
+
 
 
 // Get user profile

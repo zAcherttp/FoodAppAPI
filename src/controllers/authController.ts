@@ -711,3 +711,91 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
     });
   }
 };
+
+// Upload user avatar to Supabase Storage and update profile
+export const uploadAvatar = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    // 1) Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to upload an avatar.',
+      });
+      return;
+    }
+
+    // 2) Check if file is provided
+    if (!req.file) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide an image file.',
+      });
+      return;
+    }
+
+    // 3) Generate a unique filename
+    const fileName = `avatar-${req.user.id}-${Date.now()}${path.extname(req.file.originalname)}`;
+    const filePath = `avatars/${fileName}`;
+
+    // 4) Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('avatars')
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true // Replace if file exists
+      });
+
+    if (uploadError) {
+      console.error('Error uploading avatar:', uploadError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error uploading avatar to storage'
+      });
+      return;
+    }
+
+    // 5) Get the public URL for the uploaded file
+    const { data: publicUrlData } = supabase
+      .storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    // 6) Update user's url_avatar field in database
+    const { data: userData, error: updateError } = await supabase
+      .from('users')
+      .update({
+        url_avatar: publicUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.user.id)
+      .select();
+
+    if (updateError || !userData || userData.length === 0) {
+      console.error('Error updating user avatar URL:', updateError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error updating user profile with avatar URL'
+      });
+      return;
+    }
+
+    // 7) Return success with updated user data
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: userData[0]
+      },
+      message: 'Avatar uploaded successfully'
+    });
+
+  } catch (err) {
+    console.error('Error in avatar upload:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while uploading the avatar',
+    });
+  }
+};
