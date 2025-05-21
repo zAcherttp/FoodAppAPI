@@ -1120,7 +1120,7 @@ export const addRecipe = async (req: RequestWithUser, res: Response): Promise<vo
           ingredients,
           instructions,
           image_url, // Use the uploaded image URL or null
-          author: req.user?.name, 
+          author: req.user?.id, 
           tags,
           time,
           created_at: new Date().toISOString(),
