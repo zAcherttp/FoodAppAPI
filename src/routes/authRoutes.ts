@@ -18,6 +18,11 @@ router.patch('/update-password', authMiddleware.protect, authController.updatePa
 router.get('/get-user-byID', authMiddleware.protect, authController.getUserById);
 router.post('/upload-avatar', authMiddleware.protect, handleMulterErrors, authController.uploadAvatar);
 
+// Saved recipes routes
+router.post('/save-recipe', authMiddleware.protect, authController.saveRecipe);
+router.get('/saved-recipes', authMiddleware.protect, authController.getSavedRecipes);
+router.delete('/saved-recipes/:recipeId', authMiddleware.protect, authController.removeSavedRecipe);
+
 // Get user profile
 router.get('/me', authMiddleware.protect, (req: RequestWithUser, res: Response) => {
   res.status(200).json({

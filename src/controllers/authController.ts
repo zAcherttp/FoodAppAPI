@@ -799,3 +799,256 @@ export const uploadAvatar = async (req: RequestWithUser, res: Response): Promise
     });
   }
 };
+
+// Save recipe to saved recipes
+export const saveRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const { recipeId } = req.body;
+
+    // Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to save a recipe.',
+      });
+      return;
+    }
+
+    // Check if recipeId is provided
+    if (!recipeId) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide a recipe ID.',
+      });
+      return;
+    }
+
+    // Get the current user with their saved recipes
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('saved_recipes')
+      .eq('id', req.user.id)
+      .single();
+
+    if (userError) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Initialize saved_recipes array if it doesn't exist
+    const savedRecipes = userData.saved_recipes || [];
+    
+    // Check if recipe is already saved
+    if (savedRecipes.includes(recipeId)) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Recipe already saved',
+      });
+      return;
+    }
+
+    // Add the new recipe ID to the saved_recipes array
+    savedRecipes.push(recipeId);
+
+    // Update the user with the new saved_recipes array
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        saved_recipes: savedRecipes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.user.id)
+      .select();
+
+    if (error || !data || data.length === 0) {
+      res.status(400).json({
+        status: 'fail',
+        message: error?.message || 'Error saving recipe',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        savedRecipe: recipeId,
+        totalSavedRecipes: savedRecipes.length
+      },
+      message: 'Recipe saved successfully'
+    });
+  } catch (err) {
+    console.error('Error saving recipe:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while saving the recipe',
+    });
+  }
+};
+
+// Get all saved recipes for a user
+export const getSavedRecipes = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    // Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to view saved recipes.',
+      });
+      return;
+    }
+
+    // Get user with saved recipes
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('saved_recipes')
+      .eq('id', req.user.id)
+      .single();
+
+    if (userError) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Check if user has any saved recipes
+    const savedRecipeIds = userData.saved_recipes || [];
+    
+    if (savedRecipeIds.length === 0) {
+      res.status(200).json({
+        status: 'success',
+        results: 0,
+        data: {
+          savedRecipes: [],
+        },
+      });
+      return;
+    }
+
+    // Get recipe details for all saved recipe IDs
+    const { data: recipes, error: recipesError } = await supabase
+      .from('recipes')
+      .select('*')
+      .in('id', savedRecipeIds);
+
+    if (recipesError) {
+      res.status(400).json({
+        status: 'fail',
+        message: recipesError.message || 'Error fetching recipe details',
+      });
+      return;
+    }
+
+    // Sort recipes to match the order in saved_recipes array
+    const sortedRecipes = savedRecipeIds
+      .map((id: string) => recipes.find((recipe: any) => recipe.id === id))
+      .filter((recipe: any) => recipe !== undefined);
+
+
+    // Return id of recipes
+    res.status(200).json({
+      status: 'success',
+      results: sortedRecipes.length,
+      data: {
+        savedRecipes: sortedRecipes,
+      },
+    });
+
+  } catch (err) {
+    console.error('Error fetching saved recipes:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while fetching saved recipes',
+    });
+  }
+};
+
+// Remove a recipe from saved recipes
+export const removeSavedRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const { recipeId } = req.query;
+
+    // Check if user is logged in
+    if (!req.user || !req.user.id) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You are not logged in. Please log in to remove a saved recipe.',
+      });
+      return;
+    }
+
+    // Check if recipeId is provided
+    if (!recipeId) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'Please provide a recipe ID.',
+      });
+      return;
+    }
+
+    // Get the current user with their saved recipes
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('saved_recipes')
+      .eq('id', req.user.id)
+      .single();
+
+    if (userError) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Initialize saved_recipes array if it doesn't exist
+    const savedRecipes = userData.saved_recipes || [];
+    
+    // Check if recipe exists in saved recipes
+    if (!savedRecipes.includes(recipeId)) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'Recipe not found in saved recipes',
+      });
+      return;
+    }
+
+    // Remove the recipe ID from the saved_recipes array
+    const updatedRecipes = savedRecipes.filter((id: string) => id !== recipeId);
+
+    // Update the user with the modified saved_recipes array
+    const { error } = await supabase
+      .from('users')
+      .update({
+        saved_recipes: updatedRecipes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.user.id);
+
+    if (error) {
+      res.status(400).json({
+        status: 'fail',
+        message: error.message || 'Error removing saved recipe',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Recipe removed from saved recipes',
+      data: {
+        remainingRecipes: updatedRecipes.length
+      }
+    });
+  } catch (err) {
+    console.error('Error removing saved recipe:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while removing the saved recipe',
+    });
+  }
+};
