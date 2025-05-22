@@ -970,7 +970,7 @@ export const getSavedRecipes = async (req: RequestWithUser, res: Response): Prom
 // Remove a recipe from saved recipes
 export const removeSavedRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
   try {
-    const { recipeId } = req.query;
+    const { recipeId } = req.params;
 
     // Check if user is logged in
     if (!req.user || !req.user.id) {
@@ -1039,10 +1039,7 @@ export const removeSavedRecipe = async (req: RequestWithUser, res: Response): Pr
 
     res.status(200).json({
       status: 'success',
-      message: 'Recipe removed from saved recipes',
-      data: {
-        remainingRecipes: updatedRecipes.length
-      }
+      message: 'Recipe removed from saved recipes'
     });
   } catch (err) {
     console.error('Error removing saved recipe:', err);
