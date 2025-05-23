@@ -6,6 +6,8 @@ import supabase from './config/supabase';
 import authRoutes from './routes/authRoutes';
 import recipeRoutes from './routes/recipeRoutes';
 import userRoutes from './routes/userRoutes';
+import commentRoutes from './routes/commentRoutes';
+import ratingRoutes from './routes/ratingRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -22,6 +24,8 @@ export const createServer = (): Application => {
   app.use('/api/auth', authRoutes);
   app.use('/api/recipes', recipeRoutes);
   app.use('/api/users', userRoutes);
+  app.use('/api/comments', commentRoutes);
+  app.use('/api/ratings', ratingRoutes);
 
   app.get('/', (req, res) => {
     res.send('API is running');

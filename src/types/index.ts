@@ -57,22 +57,33 @@ export interface User {
 
   export interface Comment {
     id: string;
+    recipe_id: string;
+    user_id: string;
     content: string;
-    author_id: string;
     created_at: string;
-    likes?: number;
-    dislikes?: number;
+    updated_at?: string;
+    likes: number;
+    dislikes: number;
+    // These fields are for frontend use and will be computed at runtime
     userLiked?: boolean;
     userDisliked?: boolean;
-    likedBy?: string[]; // Array of user IDs who liked this comment
-    dislikedBy?: string[]; // Array of user IDs who disliked this comment
+  }
+
+  export interface CommentInteraction {
+    id: string;
+    comment_id: string;
+    user_id: string;
+    interaction_type: 'like' | 'dislike';
+    created_at: string;
   }
 
   export interface Rating {
     id: string;
+    recipe_id: string;
     user_id: string;
     rating: number;
     created_at: string;
+    updated_at?: string;
   }
 
   export interface Recipe {
@@ -82,10 +93,11 @@ export interface User {
     instructions: string[];
     image_url?: string;
     author?: string;
-    comments?: Comment[];
-    rating?: Rating[];
     created_at?: string;
     updated_at?: string;
     tags?: string[];
     time?: string;
+    // These will be populated from separate tables as needed
+    comments_count?: number;
+    average_rating?: number;
   }

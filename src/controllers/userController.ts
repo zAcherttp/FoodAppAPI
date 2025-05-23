@@ -480,7 +480,7 @@ export const getSavedRecipes = async (req: RequestWithUser, res: Response): Prom
       status: 'success',
       results: sortedRecipes.length,
       data: {
-        recipes: sortedRecipes,
+        savedRecipes: sortedRecipes,
       },
     });
 

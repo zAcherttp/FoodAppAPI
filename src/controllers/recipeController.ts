@@ -1,4 +1,5 @@
 import e, { Request, Response } from 'express';
+import { normalizeRecipe } from '../utils/dataNormalization';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
@@ -586,6 +587,7 @@ export const ratingRecipe = async (req: RequestWithUser, res: Response): Promise
       // Add a new Rating object
       const newRating: Rating = {
         id: crypto.randomUUID(),
+        recipe_id: id,
         user_id: userId,
         rating: numericRating,
         created_at: new Date().toISOString()
