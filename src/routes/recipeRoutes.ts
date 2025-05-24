@@ -1,8 +1,6 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import * as recipeController from '../controllers/recipeController';
 import * as authMiddleware from '../middleware/authMiddleware';
-import supabase from '../config/supabase';
-import { RequestWithUser } from '../types';
 import { handleRecipeCreationImage, handleRecipeImageErrors } from '../middleware/fileUpload';
 
 const router = express.Router();
