@@ -1,4 +1,5 @@
 import e, { Request, Response } from 'express';
+import { normalizeRecipe } from '../utils/dataNormalization';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
@@ -7,6 +8,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Recipe, RequestWithUser, Rating, Comment, User } from '../types';
 import dotenv from 'dotenv';
 import path from 'path';
+import * as commentController from './commentController';
+import * as ratingController from './ratingController';
 
 
 // Add a new recipe
@@ -586,6 +589,7 @@ export const ratingRecipe = async (req: RequestWithUser, res: Response): Promise
       // Add a new Rating object
       const newRating: Rating = {
         id: crypto.randomUUID(),
+        recipe_id: id,
         user_id: userId,
         rating: numericRating,
         created_at: new Date().toISOString()
