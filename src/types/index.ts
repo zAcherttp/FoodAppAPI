@@ -100,4 +100,5 @@ export interface User {
     // These will be populated from separate tables as needed
     comments_count?: number;
     average_rating?: number;
+    embedding?: number[];
   }

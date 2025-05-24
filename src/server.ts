@@ -8,6 +8,7 @@ import recipeRoutes from './routes/recipeRoutes';
 import userRoutes from './routes/userRoutes';
 import commentRoutes from './routes/commentRoutes';
 import ratingRoutes from './routes/ratingRoutes';
+import { RecipeVectorDB } from './controllers/aiController';
 
 // Load environment variables
 dotenv.config();
@@ -36,12 +37,23 @@ export const createServer = (): Application => {
 
 const cleanupExpiredSessions = async (): Promise<void> => {
   try {
-    const { error } = await supabase
+    // First invalidate expired sessions
+    const { error: invalidateError } = await supabase
       .from('sessions')
       .update({ is_valid: false })
       .lt('expires_at', new Date().toISOString())
       .eq('is_valid', true);
     
+    if (invalidateError) {
+      console.error('Error invalidating expired sessions:', invalidateError);
+      return;
+    }
+    
+    // Then delete the invalidated sessions
+    const { error } = await supabase
+      .from('sessions')
+      .delete()
+      .eq('is_valid', false);
     if (error) {
       console.error('Error cleaning up expired sessions:', error);
     } else {
@@ -64,5 +76,7 @@ if (require.main === module) {
     console.log(`Server running on port ${PORT}`);
     // Run initial cleanup
     cleanupExpiredSessions();
+    const recipeRAG = new RecipeVectorDB();
+    recipeRAG.processExistingRecipes();
   });
 }
