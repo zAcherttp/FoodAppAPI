@@ -3,7 +3,6 @@ import * as recipeController from '../controllers/recipeController';
 import * as recipeControllerBridge from '../controllers/recipeControllerBridge';
 import * as authMiddleware from '../middleware/authMiddleware';
 import { handleRecipeCreationImage, handleRecipeImageErrors } from '../middleware/fileUpload';
-import * as recipeControllerBridge from '../controllers/recipeControllerBridge';
 
 const router = express.Router();
 
