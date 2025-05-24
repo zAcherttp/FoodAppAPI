@@ -8,6 +8,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Recipe, RequestWithUser, Rating, Comment, User } from '../types';
 import dotenv from 'dotenv';
 import path from 'path';
+import * as commentController from './commentController';
+import * as ratingController from './ratingController';
 
 
 // Add a new recipe

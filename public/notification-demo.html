@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Notifications Demo</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .notification-list {
+            margin-top: 20px;
+        }
+        .notification {
+            padding: 10px 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #2196f3;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .notification.unread {
+            background-color: #e3f2fd;
+        }
+        .notification-time {
+            color: #777;
+            font-size: 0.8em;
+        }
+        .notification-content {
+            margin: 5px 0;
+        }
+        .notification-actions {
+            margin-top: 5px;
+        }
+        button {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0b7dda;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        #connectionStatus {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        #authSection {
+            margin-bottom: 20px;
+        }
+        #tokenInput {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Food App - Real-time Notifications Demo</h1>
+    
+    <div class="container">
+        <div id="connectionStatus">
+            Socket Status: <span id="status">Disconnected</span>
+        </div>
+
+        <div id="authSection">
+            <h2>Authentication</h2>
+            <p>Enter your JWT token to connect:</p>
+            <input type="text" id="tokenInput" placeholder="JWT Token">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+
+        <div class="controls">
+            <h2>Notifications</h2>
+            <button id="fetchNotificationsBtn" disabled>Fetch Notifications</button>
+            <button id="markAllReadBtn" disabled>Mark All as Read</button>
+        </div>
+
+        <div class="notification-list" id="notificationList">
+            <p>No notifications yet.</p>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        const apiBaseUrl = 'http://localhost:3000/api';
+        let jwtToken = '';
+
+        // DOM Elements
+        const statusEl = document.getElementById('status');
+        const tokenInput = document.getElementById('tokenInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const fetchNotificationsBtn = document.getElementById('fetchNotificationsBtn');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        const notificationList = document.getElementById('notificationList');
+
+        // Connect to Socket.IO server
+        connectBtn.addEventListener('click', () => {
+            jwtToken = tokenInput.value.trim();
+            if (!jwtToken) {
+                alert('Please enter a valid JWT token');
+                return;
+            }
+
+            socket = io('http://localhost:3000');
+            
+            // Update UI to connecting state
+            statusEl.textContent = 'Connecting...';
+            tokenInput.disabled = true;
+            connectBtn.disabled = true;
+
+            // Socket connection event
+            socket.on('connect', () => {
+                statusEl.textContent = 'Connected, authenticating...';
+                // Send token to authenticate
+                socket.emit('authenticate', jwtToken);
+            });
+
+            // Authentication success
+            socket.on('authenticated', (data) => {
+                statusEl.textContent = `Connected as user ${data.userId}`;
+                // Update UI for connected state
+                disconnectBtn.disabled = false;
+                fetchNotificationsBtn.disabled = false;
+                markAllReadBtn.disabled = false;
+                fetchNotifications();
+            });
+
+            // Authentication error
+            socket.on('authentication_error', (error) => {
+                statusEl.textContent = `Authentication error: ${error}`;
+                socket.disconnect();
+                resetConnectionUI();
+            });
+
+            // New notification received
+            socket.on('new_notification', (notification) => {
+                // Add notification to the top of the list
+                displayNotification(notification, true);
+                // Play notification sound or show browser notification
+                playNotificationSound();
+            });
+
+            // Socket disconnection
+            socket.on('disconnect', () => {
+                statusEl.textContent = 'Disconnected';
+                resetConnectionUI();
+            });
+        });
+
+        // Disconnect from Socket.IO server
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+
+        // Fetch notifications from API
+        fetchNotificationsBtn.addEventListener('click', fetchNotifications);
+
+        // Mark all notifications as read
+        markAllReadBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${apiBaseUrl}/notifications/read-all`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    // Update UI to mark all notifications as read
+                    document.querySelectorAll('.notification.unread').forEach(el => {
+                        el.classList.remove('unread');
+                    });
+                } else {
+                    console.error('Failed to mark notifications as read');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        // Fetch notifications from API
+        async function fetchNotifications() {
+            try {
+                const response = await fetch(`${apiBaseUrl}/notifications`, {
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Clear current notifications
+                    notificationList.innerHTML = '';
+                    
+                    // Display notifications
+                    if (data.data.notifications.length === 0) {
+                        notificationList.innerHTML = '<p>No notifications.</p>';
+                    } else {
+                        data.data.notifications.forEach(notification => {
+                            displayNotification(notification, !notification.is_read);
+                        });
+                    }
+                } else {
+                    console.error('Error fetching notifications:', data);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                notificationList.innerHTML = '<p>Error loading notifications.</p>';
+            }
+        }
+
+        // Display a notification in the list
+        function displayNotification(notification, isUnread) {
+            const notificationEl = document.createElement('div');
+            notificationEl.className = `notification ${isUnread ? 'unread' : ''}`;
+            notificationEl.dataset.id = notification.id;
+
+            const date = new Date(notification.created_at);
+            const formattedDate = date.toLocaleString();
+
+            notificationEl.innerHTML = `
+                <div class="notification-time">${formattedDate}</div>
+                <div class="notification-content">${notification.content}</div>
+                <div class="notification-actions">
+                    ${isUnread ? `<button class="mark-read-btn" data-id="${notification.id}">Mark as Read</button>` : ''}
+                    <button class="delete-btn" data-id="${notification.id}">Delete</button>
+                </div>
+            `;
+
+            // Prepend to the list (newest first)
+            if (notificationList.childElementCount === 1 && notificationList.firstChild.tagName === 'P') {
+                notificationList.innerHTML = '';
+            }
+            notificationList.prepend(notificationEl);
+
+            // Add event listeners for action buttons
+            if (isUnread) {
+                notificationEl.querySelector('.mark-read-btn').addEventListener('click', async (e) => {
+                    const notificationId = e.target.dataset.id;
+                    await markAsRead(notificationId);
+                });
+            }
+
+            notificationEl.querySelector('.delete-btn').addEventListener('click', async (e) => {
+                const notificationId = e.target.dataset.id;
+                await deleteNotification(notificationId);
+            });
+        }
+
+        // Mark a notification as read
+        async function markAsRead(notificationId) {
+            try {
+                const response = await fetch(`${apiBaseUrl}/notifications/${notificationId}/read`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    // Update UI
+                    const notificationEl = document.querySelector(`.notification[data-id="${notificationId}"]`);
+                    if (notificationEl) {
+                        notificationEl.classList.remove('unread');
+                        const markReadBtn = notificationEl.querySelector('.mark-read-btn');
+                        if (markReadBtn) {
+                            markReadBtn.remove();
+                        }
+                    }
+                } else {
+                    console.error('Failed to mark notification as read');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Delete a notification
+        async function deleteNotification(notificationId) {
+            try {
+                const response = await fetch(`${apiBaseUrl}/notifications/${notificationId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    // Remove from UI
+                    const notificationEl = document.querySelector(`.notification[data-id="${notificationId}"]`);
+                    if (notificationEl) {
+                        notificationEl.remove();
+                    }
+                    
+                    // If no more notifications, show message
+                    if (notificationList.childElementCount === 0) {
+                        notificationList.innerHTML = '<p>No notifications.</p>';
+                    }
+                } else {
+                    console.error('Failed to delete notification');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Play notification sound
+        function playNotificationSound() {
+            // You can implement a notification sound here
+            console.log('New notification received!');
+        }
+
+        // Reset connection UI state
+        function resetConnectionUI() {
+            tokenInput.disabled = false;
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            fetchNotificationsBtn.disabled = true;
+            markAllReadBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>

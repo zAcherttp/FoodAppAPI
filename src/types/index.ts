@@ -85,6 +85,18 @@ export interface User {
     created_at: string;
     updated_at?: string;
   }
+  export interface Notification {
+    id: string;
+    recipient_id: string;
+    sender_id?: string;
+    type: 'COMMENT' | 'RATING' | 'LIKE' | 'DISLIKE' | string;
+    content: string;
+    reference_id?: string;
+    reference_type?: string;
+    is_read: boolean;
+    created_at: string;
+    updated_at?: string;
+  }
 
   export interface Recipe {
     id: string;

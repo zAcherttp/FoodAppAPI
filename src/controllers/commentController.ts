@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import supabase from '../config/supabase';
 import crypto from 'crypto';
 import { RequestWithUser, Comment, CommentInteraction } from '../types';
+import { createNotification } from './notificationController';
 
 // Add a comment to a recipe
 export const addComment = async (req: RequestWithUser, res: Response): Promise<void> => {
@@ -66,9 +67,35 @@ export const addComment = async (req: RequestWithUser, res: Response): Promise<v
         message: 'Error adding comment'
       });
       return;
+    }    // 5) Get recipe details to create notification
+    const { data: recipe, error: recipeDetailError } = await supabase
+      .from('recipes')
+      .select('title, author')
+      .eq('id', recipeId)
+      .single();
+
+    if (!recipeDetailError && recipe && recipe.author && recipe.author !== userId) {
+      // Get user name for notification content
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .single();
+      
+      const userName = userData?.name || 'Someone';
+      
+      // Create notification for recipe author
+      await createNotification(
+        recipe.author,
+        userId,
+        'COMMENT',
+        `${userName} commented on your recipe "${recipe.title}"`,
+        recipeId,
+        'RECIPE'
+      );
     }
 
-    // 5) Return success response
+    // 6) Return success response
     res.status(201).json({
       status: 'success',
       data: {

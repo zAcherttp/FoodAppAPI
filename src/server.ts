@@ -2,36 +2,44 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import supabase from './config/supabase';
+import http from 'http';
+import { initializeSocket } from './services/socketService';
 
 import authRoutes from './routes/authRoutes';
 import recipeRoutes from './routes/recipeRoutes';
 import userRoutes from './routes/userRoutes';
 import commentRoutes from './routes/commentRoutes';
 import ratingRoutes from './routes/ratingRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 // Load environment variables
 dotenv.config();
 
 // Create and configure Express app
-export const createServer = (): Application => {
+export const createServer = (): { app: Application, server: http.Server } => {
   const app = express();
+  const server = http.createServer(app);
 
+  // Initialize Socket.IO
+  initializeSocket(server);
   // Middleware
   app.use(cors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(express.static('public'));
 
   app.use('/api/auth', authRoutes);
   app.use('/api/recipes', recipeRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/comments', commentRoutes);
   app.use('/api/ratings', ratingRoutes);
+  app.use('/api/notifications', notificationRoutes);
 
   app.get('/', (req, res) => {
     res.send('API is running');
   });
 
-  return app;
+  return { app, server };
 };
 
 const cleanupExpiredSessions = async (): Promise<void> => {
@@ -54,13 +62,13 @@ const cleanupExpiredSessions = async (): Promise<void> => {
 
 // Start server only if this file is run directly (not imported)
 if (require.main === module) {
-  const app = createServer();
+  const { server } = createServer();
   const PORT = process.env.PORT || 3000;
   const cleanupInterval = parseInt(process.env.SESSION_CLEANUP_INTERVAL || '1440'); // Default: once a day (in minutes)
   
   setInterval(cleanupExpiredSessions, cleanupInterval * 60 * 1000);
 
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     // Run initial cleanup
     cleanupExpiredSessions();
