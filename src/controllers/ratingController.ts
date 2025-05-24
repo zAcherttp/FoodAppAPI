@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import supabase from '../config/supabase';
 import crypto from 'crypto';
 import { RequestWithUser, Rating } from '../types';
+import { createNotification } from './notificationController';
 
 // Rate a recipe
 export const rateRecipe = async (req: RequestWithUser, res: Response): Promise<void> => {
@@ -127,10 +128,37 @@ export const rateRecipe = async (req: RequestWithUser, res: Response): Promise<v
         message: 'Error calculating average rating'
       });
       return;
-    }
-
-    const totalRating = allRatings.reduce((sum, r) => sum + r.rating, 0);
+    }    const totalRating = allRatings.reduce((sum, r) => sum + r.rating, 0);
     const averageRating = allRatings.length > 0 ? totalRating / allRatings.length : 0;
+
+    // 6a) Get recipe details to create notification
+    const { data: recipe, error: recipeDetailError } = await supabase
+      .from('recipes')
+      .select('title, author')
+      .eq('id', recipeId)
+      .single();
+
+    if (!recipeDetailError && recipe && recipe.author && recipe.author !== userId) {
+      // Get user name for notification content
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .single();
+      
+      const userName = userData?.name || 'Someone';
+      const ratingText = existingRating ? 'updated their rating on' : 'rated';
+      
+      // Create notification for recipe author
+      await createNotification(
+        recipe.author,
+        userId,
+        'RATING',
+        `${userName} ${ratingText} your recipe "${recipe.title}" with ${numericRating} stars`,
+        recipeId,
+        'RECIPE'
+      );
+    }
 
     // 7) Return the rating and average
     res.status(200).json({
