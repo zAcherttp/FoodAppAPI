@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.invalidateSession = exports.getUserSessions = exports.removeSavedRecipe = exports.getSavedRecipes = exports.saveRecipe = exports.uploadAvatar = exports.getMe = exports.getUserById = exports.updatePassword = exports.updateProfile = void 0;
+exports.deleteUser = exports.invalidateSession = exports.getUserSessions = exports.removeSavedRecipe = exports.getSavedRecipes = exports.saveRecipe = exports.uploadAvatar = exports.getMe = exports.getUserById = exports.updatePassword = exports.updateProfile = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const path_1 = __importDefault(require("path"));
 const supabase_1 = __importDefault(require("../config/supabase"));
@@ -641,3 +641,109 @@ const invalidateSession = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.invalidateSession = invalidateSession;
+// Delete user account
+const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        // 1) Check if user is logged in
+        if (!userId) {
+            res.status(401).json({
+                status: 'fail',
+                message: 'You must be logged in to delete your account.',
+            });
+            return;
+        }
+        // Token validation is already handled by authMiddleware.protect
+        // No password check needed as per updated requirements
+        // 5) Delete user-related data from various tables
+        // Note: Some tables have ON DELETE CASCADE in their foreign key constraints,
+        // so those records will be automatically deleted
+        // 5a) Delete user's recipes
+        const { data: userRecipes, error: recipesQueryError } = yield supabase_1.default
+            .from('recipes')
+            .select('id')
+            .eq('author', userId);
+        if (recipesQueryError) {
+            console.error('Error fetching user recipes:', recipesQueryError);
+            // Continue anyway as we want to delete the user
+        }
+        else if (userRecipes && userRecipes.length > 0) {
+            // For each recipe, delete related data that might not have CASCADE
+            for (const recipe of userRecipes) {
+                // Delete notifications related to this recipe
+                const { error: notificationsError } = yield supabase_1.default
+                    .from('notifications')
+                    .delete()
+                    .eq('reference_id', recipe.id)
+                    .eq('reference_type', 'RECIPE');
+                if (notificationsError) {
+                    console.error(`Error deleting notifications for recipe ${recipe.id}:`, notificationsError);
+                    // Continue anyway
+                }
+            }
+            // Delete the recipes
+            const { error: recipesDeleteError } = yield supabase_1.default
+                .from('recipes')
+                .delete()
+                .eq('author', userId);
+            if (recipesDeleteError) {
+                console.error('Error deleting user recipes:', recipesDeleteError);
+                // Continue anyway as we want to delete the user
+            }
+        } // 5b) Delete notifications where user is the recipient
+        const { error: recipientNotificationsError } = yield supabase_1.default
+            .from('notifications')
+            .delete()
+            .eq('recipient_id', userId);
+        if (recipientNotificationsError) {
+            console.error('Error deleting notifications where user is recipient:', recipientNotificationsError);
+            // Continue anyway as we want to delete the user
+        }
+        // 5c) Delete or update notifications where user is the sender
+        // We have two options here: Delete those notifications or set sender_id to NULL
+        // Option 1: Delete notifications where user is sender
+        const { error: senderNotificationsDeleteError } = yield supabase_1.default
+            .from('notifications')
+            .delete()
+            .eq('sender_id', userId);
+        if (senderNotificationsDeleteError) {
+            console.error('Error deleting notifications where user is sender:', senderNotificationsDeleteError);
+            // Option 2: If deletion fails, try to set sender_id to NULL (which is allowed by the foreign key constraint)
+            const { error: senderNotificationsUpdateError } = yield supabase_1.default
+                .from('notifications')
+                .update({ sender_id: null })
+                .eq('sender_id', userId);
+            if (senderNotificationsUpdateError) {
+                console.error('Error updating sender_id to NULL in notifications:', senderNotificationsUpdateError);
+                // Continue anyway as we want to delete the user
+            }
+        }
+        // 6) Delete the user account itself
+        const { error: deleteError } = yield supabase_1.default
+            .from('users')
+            .delete()
+            .eq('id', userId);
+        if (deleteError) {
+            console.error('Error deleting user account:', deleteError);
+            res.status(500).json({
+                status: 'error',
+                message: 'Error deleting user account',
+            });
+            return;
+        }
+        // 7) Return success (without a token since the user is now deleted)
+        res.status(200).json({
+            status: 'success',
+            message: 'Account deleted successfully',
+        });
+    }
+    catch (err) {
+        console.error('Error deleting user account:', err);
+        res.status(500).json({
+            status: 'error',
+            message: 'An internal error occurred while deleting the account.',
+        });
+    }
+});
+exports.deleteUser = deleteUser;

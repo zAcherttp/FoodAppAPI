@@ -131,6 +131,14 @@ http://localhost:3000
   ```
 - **Response**: Success message
 
+### Delete Account
+- **URL**: `http://localhost:3000/api/users/delete-account`
+- **Method**: `DELETE`
+- **Description**: Delete the current user's account and all associated data
+- **Authentication**: Required (token only)
+- **Request Body**: None required
+- **Response**: Success message
+
 ### Get User by ID
 - **URL**: `http://localhost:3000/api/users/user/:id`
 - **Method**: `GET`
@@ -314,6 +322,13 @@ http://localhost:3000
 - **Authentication**: Required
 - **Request Body**: Form data with image file
 - **Response**: URL of uploaded image
+
+### Delete Recipe
+- **URL**: `http://localhost:3000/api/recipes/:recipeId`
+- **Method**: `DELETE`
+- **Description**: Delete a recipe (only the author can delete their own recipe)
+- **Authentication**: Required
+- **Response**: Success message
 
 ## Comment Endpoints
 
