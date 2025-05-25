@@ -89,7 +89,7 @@ if (require.main === module) {
         console.log(`Server running on port ${PORT}`);
         // Run initial cleanup
         cleanupExpiredSessions();
-        const recipeRAG = new aiController_1.RecipeVectorDB();
-        recipeRAG.processExistingRecipes();
+        // const recipeRAG = new RecipeVectorDB();
+        // recipeRAG.processExistingRecipes();
     });
 }

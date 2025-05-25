@@ -49,6 +49,7 @@ router.patch('/update-profile', userController.updateProfile);
 router.patch('/update-password', userController.updatePassword);
 router.get('/user/:id', userController.getUserById);
 router.post('/upload-avatar', fileUpload_1.handleMulterErrors, userController.uploadAvatar);
+router.delete('/delete-account', userController.deleteUser);
 // Saved recipes routes
 router.post('/save-recipe', userController.saveRecipe);
 router.get('/saved-recipes', userController.getSavedRecipes);

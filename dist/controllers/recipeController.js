@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addRecipe = exports.uploadRecipeImage = exports.dislikeComment = exports.likeComment = exports.getRatingRecipe = exports.ratingRecipe = exports.getCommentsRecipe = exports.commentRecipe = exports.updateRecipe = exports.getRandomRecipes = exports.getLatestRecipes = exports.getRecipesByAuthor = exports.getRecipeById = exports.getRecipesByTitle = void 0;
+exports.deleteRecipe = exports.addRecipe = exports.uploadRecipeImage = exports.dislikeComment = exports.likeComment = exports.getRatingRecipe = exports.ratingRecipe = exports.getCommentsRecipe = exports.commentRecipe = exports.updateRecipe = exports.getRandomRecipes = exports.getLatestRecipes = exports.getRecipesByAuthor = exports.getRecipeById = exports.getRecipesByTitle = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const supabase_1 = __importDefault(require("../config/supabase"));
 const path_1 = __importDefault(require("path"));
@@ -1064,3 +1064,101 @@ const addRecipe = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.addRecipe = addRecipe;
+// Delete a recipe (only author can delete)
+const deleteRecipe = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const { recipeId } = req.params;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        // 1) Validate input
+        if (!recipeId) {
+            res.status(400).json({
+                status: 'fail',
+                message: 'Please provide a recipe ID'
+            });
+            return;
+        }
+        if (!userId) {
+            res.status(401).json({
+                status: 'fail',
+                message: 'You must be logged in to delete a recipe'
+            });
+            return;
+        }
+        // 2) Check if recipe exists
+        const { data: recipe, error: recipeError } = yield supabase_1.default
+            .from('recipes')
+            .select('id, author')
+            .eq('id', recipeId)
+            .single();
+        if (recipeError || !recipe) {
+            res.status(404).json({
+                status: 'fail',
+                message: 'Recipe not found'
+            });
+            return;
+        }
+        // 3) Check if user is the author of the recipe
+        if (recipe.author !== userId) {
+            res.status(403).json({
+                status: 'fail',
+                message: 'You can only delete your own recipes'
+            });
+            return;
+        }
+        // 4) Delete any comments associated with the recipe
+        const { error: commentsError } = yield supabase_1.default
+            .from('comments')
+            .delete()
+            .eq('recipe_id', recipeId);
+        if (commentsError) {
+            console.error('Error deleting comments:', commentsError);
+            // Continue anyway, since we want to delete the recipe
+        }
+        // 5) Delete any ratings associated with the recipe
+        const { error: ratingsError } = yield supabase_1.default
+            .from('ratings')
+            .delete()
+            .eq('recipe_id', recipeId);
+        if (ratingsError) {
+            console.error('Error deleting ratings:', ratingsError);
+            // Continue anyway, since we want to delete the recipe
+        }
+        // 6) Delete any notifications associated with the recipe
+        const { error: notificationsError } = yield supabase_1.default
+            .from('notifications')
+            .delete()
+            .eq('reference_id', recipeId)
+            .eq('reference_type', 'RECIPE');
+        if (notificationsError) {
+            console.error('Error deleting notifications:', notificationsError);
+            // Continue anyway, since we want to delete the recipe
+        }
+        // 7) Delete the recipe itself
+        const { error: deleteError } = yield supabase_1.default
+            .from('recipes')
+            .delete()
+            .eq('id', recipeId);
+        if (deleteError) {
+            console.error('Error deleting recipe:', deleteError);
+            res.status(500).json({
+                status: 'error',
+                message: 'Error deleting recipe'
+            });
+            return;
+        }
+        // 8) Return success
+        res.status(200).json({
+            status: 'success',
+            message: 'Recipe deleted successfully'
+        });
+    }
+    catch (err) {
+        console.error('Error deleting recipe:', err);
+        res.status(500).json({
+            status: 'error',
+            message: 'An error occurred while deleting the recipe'
+        });
+    }
+});
+exports.deleteRecipe = deleteRecipe;

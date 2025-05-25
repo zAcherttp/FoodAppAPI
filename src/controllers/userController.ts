@@ -688,3 +688,123 @@ export const invalidateSession = async (req: RequestWithUser, res: Response): Pr
     });
   }
 };
+
+// Delete user account
+export const deleteUser = async (req: RequestWithUser, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+
+    // 1) Check if user is logged in
+    if (!userId) {
+      res.status(401).json({
+        status: 'fail',
+        message: 'You must be logged in to delete your account.',
+      });
+      return;
+    }
+
+    // Token validation is already handled by authMiddleware.protect
+    // No password check needed as per updated requirements
+
+    // 5) Delete user-related data from various tables
+    // Note: Some tables have ON DELETE CASCADE in their foreign key constraints,
+    // so those records will be automatically deleted
+
+    // 5a) Delete user's recipes
+    const { data: userRecipes, error: recipesQueryError } = await supabase
+      .from('recipes')
+      .select('id')
+      .eq('author', userId);
+
+    if (recipesQueryError) {
+      console.error('Error fetching user recipes:', recipesQueryError);
+      // Continue anyway as we want to delete the user
+    } else if (userRecipes && userRecipes.length > 0) {
+      // For each recipe, delete related data that might not have CASCADE
+      for (const recipe of userRecipes) {
+        // Delete notifications related to this recipe
+        const { error: notificationsError } = await supabase
+          .from('notifications')
+          .delete()
+          .eq('reference_id', recipe.id)
+          .eq('reference_type', 'RECIPE');
+
+        if (notificationsError) {
+          console.error(`Error deleting notifications for recipe ${recipe.id}:`, notificationsError);
+          // Continue anyway
+        }
+      }
+
+      // Delete the recipes
+      const { error: recipesDeleteError } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('author', userId);
+
+      if (recipesDeleteError) {
+        console.error('Error deleting user recipes:', recipesDeleteError);
+        // Continue anyway as we want to delete the user
+      }
+    }    
+    // 5b) Delete notifications where user is the recipient
+    const { error: recipientNotificationsError } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('recipient_id', userId);
+
+    if (recipientNotificationsError) {
+      console.error('Error deleting notifications where user is recipient:', recipientNotificationsError);
+      // Continue anyway as we want to delete the user
+    }
+
+    // 5c) Delete or update notifications where user is the sender
+    // We have two options here: Delete those notifications or set sender_id to NULL
+    // Option 1: Delete notifications where user is sender
+    const { error: senderNotificationsDeleteError } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('sender_id', userId);
+
+    if (senderNotificationsDeleteError) {
+      console.error('Error deleting notifications where user is sender:', senderNotificationsDeleteError);
+      
+      // Option 2: If deletion fails, try to set sender_id to NULL (which is allowed by the foreign key constraint)
+      const { error: senderNotificationsUpdateError } = await supabase
+        .from('notifications')
+        .update({ sender_id: null })
+        .eq('sender_id', userId);
+        
+      if (senderNotificationsUpdateError) {
+        console.error('Error updating sender_id to NULL in notifications:', senderNotificationsUpdateError);
+        // Continue anyway as we want to delete the user
+      }
+    }
+
+    // 6) Delete the user account itself
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteError) {
+      console.error('Error deleting user account:', deleteError);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error deleting user account',
+      });
+      return;
+    }
+
+    // 7) Return success (without a token since the user is now deleted)
+    res.status(200).json({
+      status: 'success',
+      message: 'Account deleted successfully',
+    });
+  } catch (err) {
+    console.error('Error deleting user account:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'An internal error occurred while deleting the account.',
+    });
+  }
+};

@@ -55,4 +55,5 @@ router.get('/get-recipe-rating', authMiddleware.protect, recipeControllerBridge.
 router.patch('/like-comment', authMiddleware.protect, recipeControllerBridge.likeComment);
 router.patch('/dislike-comment', authMiddleware.protect, recipeControllerBridge.dislikeComment);
 router.post('/upload-image', authMiddleware.protect, fileUpload_1.handleRecipeImageErrors, recipeController.uploadRecipeImage);
+router.delete('/:recipeId', authMiddleware.protect, recipeController.deleteRecipe);
 exports.default = router;

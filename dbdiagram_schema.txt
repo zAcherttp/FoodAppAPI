@@ -1,0 +1,101 @@
+// FoodAppAPI Database Schema for dbdiagram.io
+// Created: May 25, 2025
+
+Table users {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name text [not null]
+  email text [unique, not null]
+  password text [not null]
+  password_reset_token text
+  password_reset_expires timestamp
+  date_of_birth date
+  country text
+  url_avatar text
+  saved_recipes text[]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table sessions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [not null, ref: > users.id]
+  token text
+  user_agent text
+  ip_address text
+  is_valid boolean [default: true]
+  expires_at timestamp [not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table recipes {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  title text [not null]
+  ingredients text[] [not null]
+  instructions text[] [not null]
+  image_url text
+  author uuid [ref: > users.id]
+  tags text[]
+  time text
+  embedding text // For storing vector embeddings as JSON string
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table ratings {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [not null, ref: > users.id]
+  recipe_id uuid [not null, ref: > recipes.id]
+  rating integer [not null]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    (user_id, recipe_id) [unique]
+  }
+}
+
+Table comments {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  content text [not null]
+  user_id uuid [not null, ref: > users.id]
+  recipe_id uuid [not null, ref: > recipes.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table notifications {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  recipient_id uuid [not null, ref: > users.id]
+  sender_id uuid [ref: > users.id]
+  notification_type text [not null]
+  reference_type text [not null]
+  reference_id uuid [not null]
+  content text
+  is_read boolean [default: false]
+  created_at timestamp [default: `now()`]
+}
+
+// Define indexes
+indexes {
+  (recipes.author) [name: 'idx_recipe_author']
+  (comments.recipe_id) [name: 'idx_comment_recipe_id']
+  (comments.user_id) [name: 'idx_comment_user_id']
+  (ratings.recipe_id) [name: 'idx_rating_recipe_id']
+  (ratings.user_id) [name: 'idx_rating_user_id']
+  (notifications.recipient_id) [name: 'idx_notification_recipient']
+  (notifications.reference_id) [name: 'idx_notification_reference']
+}
+
+// Add notes for additional context
+note {
+  'Database relationships:
+  - Users can create many recipes
+  - Users can rate many recipes (one rating per recipe)
+  - Users can comment on many recipes
+  - Users can receive many notifications
+  
+  Implementation notes:
+  - Embedding field in recipes table stores AI vector representation as JSON string
+  - Row Level Security (RLS) is implemented in Supabase
+  - Cascade delete is used for related data'
+}
