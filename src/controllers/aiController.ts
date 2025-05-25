@@ -2,10 +2,11 @@ import { gemini } from "../config/gemini";
 import supabase from "../config/supabase";
 import { Recipe } from "../types";
 
+import { pipeline, dot } from '@huggingface/transformers';
+
 export class RecipeVectorDB {
   private retryDelay = 2000;
   private maxRetries = 5;
-
   // Generate embedding with retry logic
   async generateEmbedding(text: string): Promise<number[]> {
     let retries = 0;
@@ -15,16 +16,22 @@ export class RecipeVectorDB {
       try {
         await new Promise(resolve => setTimeout(resolve, delay));
         
-        const response = await gemini.models.embedContent({
-          model: 'gemini-embedding-exp-03-07',
-          contents: text,
-          config: {
-            taskType: "RETRIEVAL_DOCUMENT",
-          }
+        const extractor = await pipeline('feature-extraction', 'Snowflake/snowflake-arctic-embed-m-v2.0', {
+          dtype: 'q8',
+          revision: 'main',
         });
         
-        if (response.embeddings?.[0]?.values) {
-          return response.embeddings[0].values as number[];
+        const response = await extractor(text, { normalize: true, pooling: 'cls' });
+
+        if (response.ort_tensor.data && response.ort_tensor.data.length > 0) {
+          // Convert object to array if needed
+          const tensorData = response.ort_tensor.data;
+          if (Array.isArray(tensorData)) {
+            return tensorData as unknown as number[];
+          } else {
+            // Convert object with numeric keys to array
+            return Object.values(tensorData) as unknown as number[];
+          }
         }
         throw new Error('No embedding values returned');
         
@@ -59,7 +66,7 @@ export class RecipeVectorDB {
   }
 
 // Generate embeddings for existing recipes and update database
-async processExistingRecipes(): Promise<void> {
+async processRecipes(): Promise<void> {
     try {
         // Fetch all recipes without embeddings
         const { data: recipes, error } = await supabase
@@ -90,34 +97,25 @@ async processExistingRecipes(): Promise<void> {
                     ingredients: recipe.ingredients as string[],
                     instructions: recipe.instructions as string[],
                     time: recipe.time
-                };
-
-                // Generate embedding
+                };                // Generate embedding
                 const embedding: number[] = await this.generateEmbedding(this.buildSearchableText(R));
 
                 // Log embedding info for debugging
-                //console.log(`Embedding dimensions: ${embedding.length}`);
+                console.log(`Embedding dimensions: ${embedding.length}`);
                 
-                // Convert embedding to string
-                const embeddingString = JSON.stringify(embedding);
-                //console.log(`JSON string length: ${embeddingString.length} characters`);
-
-                // Update recipe with embedding
+                // Update recipe with embedding (store as vector directly)
                 const { error: updateError } = await supabase
                     .from('recipes')
-                    .update({ embedding: embeddingString })
-                    .eq('id', recipe.id);
-
-                if (updateError) {
-                    console.error(`Failed to update recipe ${recipe.id}:`);
-                    
+                    .update({ embedding: embedding })
+                    .eq('id', recipe.id);                if (updateError) {
+                    console.error(`Failed to update recipe ${recipe.id}:`, updateError.message);
+                    console.error(updateError.message);
                     // Show preview of embedding instead of full vector
                     const preview = embedding.length > 5 
                         ? `[${embedding.slice(0, 3).join(', ')}, ...${embedding.length - 3} more floats]`
                         : `[${embedding.join(', ')}]`;
                     
                     console.error(`Embedding preview: ${preview}`);
-                    console.error(`Full JSON string length: ${embeddingString.length} characters`);
                 } else {
                     console.log(`Processed recipe ${i + 1}/${recipes.length}: ${recipe.title}`);
                 }

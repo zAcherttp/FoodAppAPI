@@ -85,6 +85,6 @@ if (require.main === module) {
     // Run initial cleanup
     cleanupExpiredSessions();
     const recipeRAG = new RecipeVectorDB();
-    recipeRAG.processExistingRecipes();
+    recipeRAG.processRecipes();
   });
 }
