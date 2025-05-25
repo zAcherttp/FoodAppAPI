@@ -1272,3 +1272,47 @@ export const deleteRecipe = async (req: RequestWithUser, res: Response): Promise
     });
   }
 };
+
+// Get all recipes
+export const getAllRecipes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // 1) Fetch all recipes from Supabase
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*');
+
+    // 2) Check for errors
+    if (error || !data) {
+      console.error('Error fetching recipes:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error fetching recipes'
+      });
+      return;
+    }
+
+    // 3) Check if recipes were found
+    if (data.length === 0) {
+      res.status(404).json({
+        status: 'fail',
+        message: 'No recipes found'
+      });
+      return;
+    }
+
+    // 4) Return the recipes
+    res.status(200).json({
+      status: 'success',
+      results: data.length,
+      data: {
+        recipes: data
+      }
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Something went wrong'
+    });
+  }
+};

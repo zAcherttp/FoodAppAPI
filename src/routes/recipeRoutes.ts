@@ -12,6 +12,7 @@ router.get('/get-recipe-latest', authMiddleware.protect, recipeController.getLat
 router.get('/get-recipe-id', authMiddleware.protect, recipeController.getRecipeById);
 router.get('/get-recipe-author', authMiddleware.protect, recipeController.getRecipesByAuthor);
 router.get('/get-random-recipe', authMiddleware.protect, recipeController.getRandomRecipes);
+router.get('/get-all-recipes', authMiddleware.protect, recipeController.getAllRecipes);
 router.patch('/comment-recipe', authMiddleware.protect, recipeControllerBridge.commentRecipe);
 router.get('/get-recipe-comments', authMiddleware.protect, recipeControllerBridge.getCommentsRecipe);
 router.patch('/rating-recipe', authMiddleware.protect, recipeControllerBridge.ratingRecipe);
