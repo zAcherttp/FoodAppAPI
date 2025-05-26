@@ -1,7 +1,13 @@
 import { Type } from "@google/genai";
 import { gemini } from "../config/gemini";
 import supabase from "../config/supabase";
-import { Recipe, SearchOptions, RAGResponse, SearchQuery } from "../types";
+import {
+  Recipe,
+  SearchOptions,
+  RAGResponse,
+  SearchQuery,
+  ImageExtractionResult,
+} from "../types";
 
 import { pipeline } from "@huggingface/transformers";
 
@@ -365,6 +371,89 @@ Nội dung trả về là mảng id của công thức`,
     } catch (error: any) {
       console.error("Gemini refinement error:", error.message);
       return "";
+    }
+  }
+
+  async extractIngredientsFromImage(
+    base64Image: string,
+    mimeType: string
+  ): Promise<ImageExtractionResult> {
+    const config = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        required: ["ingredients", "suggested_dishes"],
+        properties: {
+          ingredients: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.STRING,
+            },
+          },
+          suggested_dishes: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.STRING,
+            },
+          },
+        },
+      },
+      systemInstruction: [
+        {
+          text: `Bạn là một đầu bếp chuyên nhận diện nguyên liệu nấu ăn từ hình ảnh và gợi ý ít nhất 01 công thức dựa trên nguyên liệu đó. 
+          
+          Hãy phân tích hình ảnh và trả về danh sách các nguyên liệu có thể nhận diện được.
+
+          Quy tắc:
+          - Chỉ nhận diện những nguyên liệu rõ ràng, có thể sử dụng để nấu ăn
+          - Trả về tên tiếng Việt của nguyên liệu
+          - Không bao gồm các vật dụng, đồ dùng nhà bếp
+          - Nếu không nhận diện được nguyên liệu nào, trả về mảng rỗng
+          - Ưu tiên các nguyên liệu tươi sống như rau củ, thịt cá, gia vị
+
+          Ví dụ: ["cà chua", "hành tây", "thịt bò", "rau xà lách", "ớt"]`,
+        },
+      ],
+    };
+
+    const model = "gemini-2.0-flash-lite";
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          {
+            text: "Hãy nhận diện các nguyên liệu nấu ăn trong hình ảnh này:",
+          },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Image,
+            },
+          },
+        ],
+      },
+    ];
+
+    try {
+      const response = await gemini.models.generateContent({
+        model,
+        config,
+        contents,
+      });
+
+      const result = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (result) {
+        const parsed = JSON.parse(result) as ImageExtractionResult;
+        return parsed || [];
+      }
+      return {
+        ingredients: [],
+        suggested_dishes: [],
+      };
+    } catch (error: any) {
+      console.error("Ingredient extraction error:", error.message);
+      throw new Error(`Failed to extract ingredients: ${error.message}`);
     }
   }
 }

@@ -125,7 +125,7 @@ export interface SearchOptions {
   dietary_restrictions?: string[];
 }
 export interface SearchQuery {
-  title: string;
+  title?: string;
   author?: string;
   tags?: string[];
   ingredients?: string[];
@@ -141,4 +141,9 @@ export interface RAGResponse {
     avg_similarity: number;
     search_time_ms: number;
   };
+}
+
+export interface ImageExtractionResult {
+  suggested_dishes: string[];
+  ingredients: string[];
 }

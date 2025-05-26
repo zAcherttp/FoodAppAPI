@@ -1,71 +1,76 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-import supabase from '../config/supabase';
-import sendEmail from '../utils/emailService';
-import { User, Session, RequestWithUser, EmailOptions } from '../types';
-import dotenv from 'dotenv';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import supabase from "../config/supabase";
+import sendEmail from "../services/emailService";
+import { User, Session, RequestWithUser, EmailOptions } from "../types";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 if (!process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET is not defined');
+  throw new Error("JWT_SECRET is not defined");
 }
 
 const signToken = (id: string, sessionId: string): string => {
   return jwt.sign({ id, sessionId }, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '90d',
+    expiresIn: process.env.JWT_EXPIRES_IN || "90d",
   } as jwt.SignOptions);
 };
 
-const createSession = async (userId: string, req: Request): Promise<Session> => {
-  const expiresInDays = parseInt(process.env.JWT_EXPIRES_IN || '90');
+const createSession = async (
+  userId: string,
+  req: Request
+): Promise<Session> => {
+  const expiresInDays = parseInt(process.env.JWT_EXPIRES_IN || "90");
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expiresInDays);
-  
+
   // Create session record
   const { data, error } = await supabase
-    .from('sessions')
+    .from("sessions")
     .insert([
       {
         user_id: userId,
-        user_agent: req.headers['user-agent'] || 'unknown',
+        user_agent: req.headers["user-agent"] || "unknown",
         ip_address: req.ip || req.socket.remoteAddress,
         expires_at: expiresAt.toISOString(),
-        is_valid: true
-      }
+        is_valid: true,
+      },
     ])
     .select();
 
   if (error || !data || data.length === 0) {
-    console.error('Error creating session:', error);
-    throw new Error('Could not create session');
+    console.error("Error creating session:", error);
+    throw new Error("Could not create session");
   }
-  
+
   return data[0] as Session;
 };
 
 // Helper function to create and send token
-const createSendToken = async (user: User, req: Request, statusCode: number, res: Response): Promise<void> => {
+const createSendToken = async (
+  user: User,
+  req: Request,
+  statusCode: number,
+  res: Response
+): Promise<void> => {
   try {
     // Create a session
     const session = await createSession(user.id, req);
-    
+
     // Create token including the session ID
     const token = signToken(user.id, session.id);
 
     // Update the session with the token
-    await supabase
-      .from('sessions')
-      .update({ token })
-      .eq('id', session.id);
+    await supabase.from("sessions").update({ token }).eq("id", session.id);
 
     // Remove password from output
     delete user.password;
 
     res.status(statusCode).json({
-      status: 'success',
+      status: "success",
       token,
       data: {
         user,
@@ -73,10 +78,10 @@ const createSendToken = async (user: User, req: Request, statusCode: number, res
       },
     });
   } catch (err) {
-    console.error('Error in createSendToken:', err);
+    console.error("Error in createSendToken:", err);
     res.status(500).json({
-      status: 'error',
-      message: 'Error creating authentication token',
+      status: "error",
+      message: "Error creating authentication token",
     });
   }
 };
@@ -88,15 +93,15 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     // Check if user already exists
     const { data: existingUser } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
+      .from("users")
+      .select("*")
+      .eq("email", email)
       .single();
 
     if (existingUser) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Email already in use',
+        status: "fail",
+        message: "Email already in use",
       });
       return;
     }
@@ -106,7 +111,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     // Create user in Supabase
     const { data: newUser, error } = await supabase
-      .from('users')
+      .from("users")
       .insert([
         {
           name,
@@ -118,8 +123,8 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     if (error || !newUser || newUser.length === 0) {
       res.status(400).json({
-        status: 'fail',
-        message: error?.message || 'Error creating user',
+        status: "fail",
+        message: error?.message || "Error creating user",
       });
       return;
     }
@@ -129,17 +134,17 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     // Return success but don't create a session
     res.status(201).json({
-      status: 'success',
+      status: "success",
       data: {
         user: newUser[0],
       },
-      message: 'User created successfully. Please log in.'
+      message: "User created successfully. Please log in.",
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      status: 'error',
-      message: 'Error creating user',
+      status: "error",
+      message: "Error creating user",
     });
   }
 };
@@ -152,81 +157,86 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Check if email and password exist
     if (!email || !password) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Please provide email and password',
+        status: "fail",
+        message: "Please provide email and password",
       });
       return;
     }
 
     // Check if user exists && password is correct
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
+      .from("users")
+      .select("*")
+      .eq("email", email)
       .single();
 
-    if (error || !user || !(await bcrypt.compare(password, user.password as string))) {
+    if (
+      error ||
+      !user ||
+      !(await bcrypt.compare(password, user.password as string))
+    ) {
       res.status(401).json({
-        status: 'fail',
-        message: 'Incorrect email or password',
+        status: "fail",
+        message: "Incorrect email or password",
       });
       return;
     }
 
     // Check for existing active sessions
     const { data: existingSessions } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_valid', true);
+      .from("sessions")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("is_valid", true);
 
     // Invalidate all existing sessions - ensure only one active session
     if (existingSessions && existingSessions.length > 0) {
       const currentIP = req.ip || req.socket.remoteAddress;
-      const currentUserAgent = req.headers['user-agent'] || 'unknown';
-      
+      const currentUserAgent = req.headers["user-agent"] || "unknown";
+
       // Option to reuse session if from same device/location
-      const sameDeviceSession = existingSessions.find(session => 
-        session.ip_address === currentIP && 
-        session.user_agent === currentUserAgent
+      const sameDeviceSession = existingSessions.find(
+        (session) =>
+          session.ip_address === currentIP &&
+          session.user_agent === currentUserAgent
       );
-      
+
       if (sameDeviceSession) {
         // If session is from same device but has expired, invalidate it
         const now = new Date();
         const expiresAt = new Date(sameDeviceSession.expires_at);
-        
+
         if (expiresAt > now) {
           // Session is still valid, reuse it
           const token = signToken(user.id, sameDeviceSession.id);
-          
+
           // Update the session with new token
           await supabase
-            .from('sessions')
+            .from("sessions")
             .update({ token })
-            .eq('id', sameDeviceSession.id);
-          
+            .eq("id", sameDeviceSession.id);
+
           // Remove password from output
           delete user.password;
-          
+
           res.status(200).json({
-            status: 'success',
+            status: "success",
             token,
             sessionId: sameDeviceSession.id, // Include session ID in response
             data: {
               user,
-              message: 'Using existing session from same device'
+              message: "Using existing session from same device",
             },
           });
           return;
         }
       }
-      
+
       // Invalidate all existing sessions for this user
       await supabase
-        .from('sessions')
+        .from("sessions")
         .update({ is_valid: false })
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
     }
 
     // Create new session and send token
@@ -234,106 +244,107 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      status: 'error',
-      message: 'Error logging in',
+      status: "error",
+      message: "Error logging in",
     });
   }
 };
 
-// Logout 
-export const logout = async (req: RequestWithUser, res: Response): Promise<void> => {
+// Logout
+export const logout = async (
+  req: RequestWithUser,
+  res: Response
+): Promise<void> => {
   try {
     // Get token
     let token: string | undefined;
     if (
       req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
+      req.headers.authorization.startsWith("Bearer")
     ) {
-      token = req.headers.authorization.split(' ')[1];
+      token = req.headers.authorization.split(" ")[1];
     }
 
     if (!token) {
       res.status(401).json({
-        status: 'fail',
-        message: 'You are not logged in.',
+        status: "fail",
+        message: "You are not logged in.",
       });
       return;
     }
 
     // Find and invalidate the session
     const { error } = await supabase
-      .from('sessions')
+      .from("sessions")
       .update({ is_valid: false })
-      .eq('token', token);
+      .eq("token", token);
 
     if (error) {
-      console.error('Error invalidating session:', error);
+      console.error("Error invalidating session:", error);
       res.status(500).json({
-        status: 'error',
-        message: 'Could not log out. Please try again.',
+        status: "error",
+        message: "Could not log out. Please try again.",
       });
       return;
     }
 
-    res.status(200).json({ 
-      status: 'success',
-      message: 'Logged out successfully'
+    res.status(200).json({
+      status: "success",
+      message: "Logged out successfully",
     });
   } catch (err) {
-    console.error('Logout error:', err);
+    console.error("Logout error:", err);
     res.status(500).json({
-      status: 'error',
-      message: 'An error occurred during logout',
+      status: "error",
+      message: "An error occurred during logout",
     });
   }
 };
 
 // Forgot password
-export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+export const forgotPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { email } = req.body;
 
     // 1) Get user based on POSTed email
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
+      .from("users")
+      .select("*")
+      .eq("email", email)
       .single();
 
     if (error || !user) {
       res.status(404).json({
-        status: 'fail',
-        message: 'There is no user with that email address',
+        status: "fail",
+        message: "There is no user with that email address",
       });
       return;
     }
 
     // 2) Generate random 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Hash the OTP before storing in database
-    const hashedOtp = crypto
-      .createHash('sha256')
-      .update(otp)
-      .digest('hex');
-    
-    const otpExpires = new Date(
-      Date.now() + 10 * 60 * 1000
-    ).toISOString(); // 10 minutes
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
     // 3) Save to database
     const { error: updateError } = await supabase
-      .from('users')
+      .from("users")
       .update({
         password_reset_token: hashedOtp,
         password_reset_expires: otpExpires,
       })
-      .eq('id', user.id);
+      .eq("id", user.id);
 
     if (updateError) {
       res.status(500).json({
-        status: 'fail',
-        message: 'Error generating OTP',
+        status: "fail",
+        message: "Error generating OTP",
       });
       return;
     }
@@ -342,7 +353,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     try {
       const emailData: EmailOptions = {
         email: user.email,
-        subject: 'Your password reset OTP (valid for 10 min)',
+        subject: "Your password reset OTP (valid for 10 min)",
         html: `
           <h2>Password Reset</h2>
           <p>You requested to reset your password.</p>
@@ -351,33 +362,33 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
           <p>If you didn't request a password reset, please ignore this email.</p>
         `,
       };
-      
+
       await sendEmail(emailData);
 
       res.status(200).json({
-        status: 'success',
-        message: 'Token sent to email!',
+        status: "success",
+        message: "Token sent to email!",
       });
     } catch (err) {
       // If error sending email, remove token from db
       await supabase
-        .from('users')
+        .from("users")
         .update({
           password_reset_token: null,
           password_reset_expires: null,
         })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       res.status(500).json({
-        status: 'error',
-        message: 'There was an error sending the email. Try again later!',
+        status: "error",
+        message: "There was an error sending the email. Try again later!",
       });
     }
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      status: 'error',
-      message: 'Error processing request',
+      status: "error",
+      message: "Error processing request",
     });
   }
 };
@@ -389,105 +400,108 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 
     if (!email || !otp) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Please provide email and OTP',
+        status: "fail",
+        message: "Please provide email and OTP",
       });
       return;
     }
 
     // 1) Hash the provided OTP
-    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
-    
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
     // 2) Get user based on email and check OTP
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('password_reset_token', hashedOtp)
-      .gt('password_reset_expires', new Date().toISOString())
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .eq("password_reset_token", hashedOtp)
+      .gt("password_reset_expires", new Date().toISOString())
       .single();
 
     // 3) If OTP has not expired and is valid, return success
     if (error || !user) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Invalid OTP or OTP has expired',
+        status: "fail",
+        message: "Invalid OTP or OTP has expired",
       });
       return;
     }
 
     // OTP is valid
     res.status(200).json({
-      status: 'success',
-      message: 'OTP verified successfully',
-      isValid: true
+      status: "success",
+      message: "OTP verified successfully",
+      isValid: true,
     });
-    
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      status: 'error',
-      message: 'Error verifying OTP',
+      status: "error",
+      message: "Error verifying OTP",
     });
   }
 };
 
 // Reset password
-export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+export const resetPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { email, password, confirmPassword } = req.body;
 
     if (!email || !password || !confirmPassword) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Please provide email, password, and password confirmation',
+        status: "fail",
+        message: "Please provide email, password, and password confirmation",
       });
       return;
     }
-    
+
     // Check if password and confirmPassword match
     if (password !== confirmPassword) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Passwords do not match',
+        status: "fail",
+        message: "Passwords do not match",
       });
       return;
     }
-    
+
     // Get user based on email and check if they have an active reset token
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .not('password_reset_token', 'is', null)
-      .gt('password_reset_expires', new Date().toISOString())
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .not("password_reset_token", "is", null)
+      .gt("password_reset_expires", new Date().toISOString())
       .single();
 
     // 3) If reset token has not expired and is valid, set the new password
     if (error || !user) {
       res.status(400).json({
-        status: 'fail',
-        message: 'Invalid reset session or session has expired. Please verify OTP again.',
+        status: "fail",
+        message:
+          "Invalid reset session or session has expired. Please verify OTP again.",
       });
       return;
     }
 
     // 4) Update password
     const hashedPassword = await bcrypt.hash(password, 12);
-    
+
     const { error: updateError } = await supabase
-      .from('users')
+      .from("users")
       .update({
         password: hashedPassword,
         password_reset_token: null,
         password_reset_expires: null,
       })
-      .eq('id', user.id);
+      .eq("id", user.id);
 
     if (updateError) {
       res.status(500).json({
-        status: 'error',
-        message: 'Error updating password',
+        status: "error",
+        message: "Error updating password",
       });
       return;
     }
@@ -497,50 +511,53 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      status: 'error',
-      message: 'Error resetting password',
-    });  }
+      status: "error",
+      message: "Error resetting password",
+    });
+  }
 };
 
 // Get all active sessions for current user
-export const getUserSessions = async (req: RequestWithUser, res: Response): Promise<void> => {
+export const getUserSessions = async (
+  req: RequestWithUser,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user?.id) {
       res.status(401).json({
-        status: 'fail',
-        message: 'Not authenticated',
+        status: "fail",
+        message: "Not authenticated",
       });
       return;
     }
 
     const { data: sessions, error } = await supabase
-      .from('sessions')
-      .select('id, user_agent, ip_address, created_at, expires_at')
-      .eq('user_id', req.user.id)
-      .eq('is_valid', true)
-      .order('created_at', { ascending: false });
-    
+      .from("sessions")
+      .select("id, user_agent, ip_address, created_at, expires_at")
+      .eq("user_id", req.user.id)
+      .eq("is_valid", true)
+      .order("created_at", { ascending: false });
+
     if (error) {
       res.status(500).json({
-        status: 'error',
-        message: 'Could not retrieve sessions',
+        status: "error",
+        message: "Could not retrieve sessions",
       });
       return;
     }
-    
+
     res.status(200).json({
-      status: 'success',
+      status: "success",
       data: {
         sessions,
-        current_session_id: req.session?.id
+        current_session_id: req.session?.id,
       },
     });
   } catch (err) {
-    console.error('Error fetching sessions:', err);
+    console.error("Error fetching sessions:", err);
     res.status(500).json({
-      status: 'error',
-      message: 'An error occurred while fetching sessions',
+      status: "error",
+      message: "An error occurred while fetching sessions",
     });
   }
 };
-
