@@ -13,5 +13,11 @@ router.post(
   upload.single("image"),
   aiController.extractIngredientsFromImageAndSearchRecipes
 );
+router.post(
+  "/suggest-recipes",
+  authMiddleware.protect,
+  upload.single("image"),
+  aiController.extractIngredientsFromImageAndSuggestRecipe
+);
 
 export default router;

@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { RequestWithUser, SearchQuery } from "../types";
+import { Recipe, RequestWithUser, SearchQuery } from "../types";
 import { RecipeAssistant } from "../services/aiService";
 
 const assistant = new RecipeAssistant();
@@ -83,6 +83,50 @@ export const extractIngredientsFromImageAndSearchRecipes = async (
         suggested_dishes: extracted.suggested_dishes,
         extracted_ingredients: extracted.ingredients,
         recipes: searchResult,
+      },
+    });
+  } catch (error: any) {
+    console.error("Extract ingredients error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to extract ingredients from image",
+      error: error.message,
+    });
+  }
+};
+
+export const extractIngredientsFromImageAndSuggestRecipe = async (
+  req: RequestWithUser,
+  res: Response
+): Promise<void> => {
+  try {
+    // Validate file upload
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: "No image file provided",
+      });
+      return;
+    }
+
+    // Convert buffer directly to base64
+    const base64Image = req.file.buffer.toString("base64");
+
+    // Extract ingredients using AI directly from buffer
+    const extracted = await assistant.extractIngredientsFromImage(
+      base64Image,
+      req.file.mimetype
+    );
+
+    const recipes: Recipe[] = await assistant.getSuggestedRecipes(
+      extracted.ingredients
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        extracted_ingredients: extracted.ingredients,
+        recipes: recipes,
       },
     });
   } catch (error: any) {

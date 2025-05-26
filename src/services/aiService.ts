@@ -8,69 +8,39 @@ import {
   SearchQuery,
   ImageExtractionResult,
 } from "../types";
+import sharp from "sharp";
 
 import { pipeline } from "@huggingface/transformers";
 
 export class RecipeAssistant {
-  private retryDelay = 2000;
-  private maxRetries = 5;
-  // Generate embedding with retry logic
-  async generateEmbedding(text: string): Promise<number[]> {
-    let retries = 0;
-    let delay = this.retryDelay;
+  private static embeddingPipeline: any = null;
 
-    while (retries <= this.maxRetries) {
-      try {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-
-        const extractor = await pipeline(
-          "feature-extraction",
-          "Snowflake/snowflake-arctic-embed-m-v2.0",
-          {
-            dtype: "q8",
-            revision: "main",
-          }
-        );
-
-        const response = await extractor(text, {
-          normalize: true,
-          pooling: "cls",
-        });
-
-        if (response.ort_tensor.data && response.ort_tensor.data.length > 0) {
-          // Convert object to array if needed
-          const tensorData = response.ort_tensor.data;
-          if (Array.isArray(tensorData)) {
-            return tensorData as unknown as number[];
-          } else {
-            // Convert object with numeric keys to array
-            return Object.values(tensorData) as unknown as number[];
-          }
+  async initializeEmbedding() {
+    if (!RecipeAssistant.embeddingPipeline) {
+      RecipeAssistant.embeddingPipeline = await pipeline(
+        "feature-extraction",
+        "Snowflake/snowflake-arctic-embed-m-v2.0",
+        {
+          dtype: "q8",
+          revision: "main",
         }
-        throw new Error("No embedding values returned");
-      } catch (error: any) {
-        if (
-          error?.message?.includes("429") ||
-          error?.message?.includes("RESOURCE_EXHAUSTED")
-        ) {
-          retries++;
-          if (retries > this.maxRetries) {
-            throw new Error(
-              `Failed to generate embedding after ${this.maxRetries} retries`
-            );
-          }
-          delay = delay * 2 + Math.floor(Math.random() * 1000);
-          console.log(
-            `Rate limit hit. Retrying in ${delay / 1000}s... (${retries}/${
-              this.maxRetries
-            })`
-          );
-        } else {
-          throw error;
-        }
-      }
+      );
     }
-    throw new Error("Failed to generate embedding");
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
+    // Remove the delay on first call
+    if (!RecipeAssistant.embeddingPipeline) {
+      await this.initializeEmbedding();
+    }
+
+    const response = await RecipeAssistant.embeddingPipeline(text, {
+      normalize: true,
+      pooling: "cls",
+    });
+
+    // Direct array conversion
+    return Array.from(response.ort_tensor.data);
   }
 
   // Build searchable text from recipe data
@@ -198,30 +168,31 @@ export class RecipeAssistant {
 
     try {
       // 1. Generate embedding for user query
-      const queryEmbedding = await this.generateEmbedding(
-        this.buildQuery(userQuery)
-      );
+      const [queryEmbedding] = await Promise.all([
+        this.generateEmbedding(this.buildQuery(userQuery)),
+        // Pre-warm any other resources if needed
+      ]);
 
       // 2. Perform vector similarity search
-      const { data: searchResults, error } = await supabase.rpc(
-        "vector_search",
-        {
+      const [searchResults] = await Promise.all([
+        supabase.rpc("vector_search", {
           query_embedding: queryEmbedding,
           similarity_threshold: options.similarity_threshold || 0.5,
           match_limit: options.match_limit || 10,
-        }
-      );
+        }),
+        // Could pre-process other data here
+      ]);
 
-      if (error) {
-        throw new Error(`Search failed: ${error.message}`);
+      if (searchResults.error) {
+        throw new Error(`Search failed: ${searchResults.error.message}`);
       }
 
-      console.log("found " + searchResults.length + " results");
+      console.log("found " + searchResults.data.length + " results");
 
       const searchTime = Date.now() - startTime;
 
       // 3. Format recipes and filter out non-dietary-compatible ones
-      const compatibleRecipes = searchResults.map((result: any) => ({
+      const compatibleRecipes = searchResults.data.map((result: any) => ({
         id: result.id,
         title: result.title,
         author: result.author,
@@ -378,6 +349,8 @@ Nội dung trả về là mảng id của công thức`,
     base64Image: string,
     mimeType: string
   ): Promise<ImageExtractionResult> {
+    const optimizedImage = await this.optimizeImageForProcessing(base64Image);
+
     const config = {
       responseMimeType: "application/json",
       responseSchema: {
@@ -427,7 +400,7 @@ Nội dung trả về là mảng id của công thức`,
           {
             inlineData: {
               mimeType: mimeType,
-              data: base64Image,
+              data: optimizedImage,
             },
           },
         ],
@@ -454,6 +427,148 @@ Nội dung trả về là mảng id của công thức`,
     } catch (error: any) {
       console.error("Ingredient extraction error:", error.message);
       throw new Error(`Failed to extract ingredients: ${error.message}`);
+    }
+  }
+
+  private async optimizeImageForProcessing(
+    base64Image: string
+  ): Promise<string> {
+    const inputBuffer = Buffer.from(base64Image, "base64");
+    let quality = 80;
+    let width = 1920;
+    let optimizedImage: Buffer;
+
+    do {
+      optimizedImage = await sharp(inputBuffer)
+        .resize({
+          width: width,
+          height: undefined,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: quality })
+        .toBuffer();
+
+      if (optimizedImage.length > 2 * 1024 * 1024) {
+        if (quality > 50) {
+          quality -= 10;
+        } else {
+          width = Math.floor(width * 0.8);
+          quality = 80;
+        }
+      }
+    } while (
+      optimizedImage.length > 2 * 1024 * 1024 &&
+      (quality >= 30 || width >= 480)
+    );
+
+    return optimizedImage.toString("base64");
+  }
+
+  async getSuggestedRecipes(ingredients: string[]): Promise<Recipe[]> {
+    const config = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        required: ["recipes"],
+        properties: {
+          recipes: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              required: ["title", "ingredients", "instructions", "time"],
+              properties: {
+                title: {
+                  type: Type.STRING,
+                },
+                ingredients: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.STRING,
+                  },
+                },
+                instructions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.STRING,
+                  },
+                },
+                time: {
+                  type: Type.STRING,
+                },
+              },
+            },
+          },
+        },
+      },
+      systemInstruction: [
+        {
+          text: `Bạn là một đầu bếp chuyên nghiệp với nhiều năm kinh nghiệm. Hãy tạo ra 2-3 công thức nấu ăn dựa trên danh sách nguyên liệu được cung cấp.
+
+Quy tắc:
+- Sử dụng tối đa các nguyên liệu có sẵn trong danh sách
+- Có thể thêm các nguyên liệu cơ bản khác như muối, tiêu, dầu ăn, nước
+- Tạo các món ăn đa dạng (có thể là món chính, món phụ, món canh)
+- Thời gian nấu phải thực tế và chính xác
+- Hướng dẫn phải chi tiết, dễ hiểu
+- Tên món ăn phải hấp dẫn và phù hợp với văn hóa Việt Nam
+
+Format trả về:
+- title: Tên món ăn (tiếng Việt)
+- ingredients: Danh sách nguyên liệu với định lượng cụ thể
+- instructions: Các bước thực hiện chi tiết
+- time: Thời gian nấu (ví dụ: "30 phút", "1 giờ 15 phút")`,
+        },
+      ],
+    };
+
+    const model = "gemini-2.0-flash-lite";
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Hãy tạo công thức nấu ăn từ các nguyên liệu sau: ${ingredients.join(
+              ", "
+            )}`,
+          },
+        ],
+      },
+    ];
+
+    try {
+      const response = await gemini.models.generateContent({
+        model,
+        config,
+        contents,
+      });
+
+      const result = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (result) {
+        const parsed = JSON.parse(result);
+
+        // Convert to Recipe format and add required fields
+        const recipes: Recipe[] = parsed.recipes.map(
+          (recipe: any, index: number) => ({
+            id: `gemini-${Date.now()}-${index}`, // Generate unique ID
+            title: recipe.title,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+            time: recipe.time,
+            author: "Gemini",
+            created_at: new Date().toISOString(),
+            tags: ["AI-generated", "custom"],
+          })
+        );
+
+        return recipes;
+      }
+
+      return [];
+    } catch (error: any) {
+      console.error("Recipe generation error:", error.message);
+      throw new Error(`Failed to generate recipes: ${error.message}`);
     }
   }
 }
