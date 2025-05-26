@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteRecipe = exports.addRecipe = exports.uploadRecipeImage = exports.dislikeComment = exports.likeComment = exports.getRatingRecipe = exports.ratingRecipe = exports.getCommentsRecipe = exports.commentRecipe = exports.updateRecipe = exports.getRandomRecipes = exports.getLatestRecipes = exports.getRecipesByAuthor = exports.getRecipeById = exports.getRecipesByTitle = void 0;
+exports.getAllRecipes = exports.deleteRecipe = exports.addRecipe = exports.uploadRecipeImage = exports.dislikeComment = exports.likeComment = exports.getRatingRecipe = exports.ratingRecipe = exports.getCommentsRecipe = exports.commentRecipe = exports.updateRecipe = exports.getRandomRecipes = exports.getLatestRecipes = exports.getRecipesByAuthor = exports.getRecipeById = exports.getRecipesByTitle = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const supabase_1 = __importDefault(require("../config/supabase"));
 const path_1 = __importDefault(require("path"));
@@ -1162,3 +1162,45 @@ const deleteRecipe = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.deleteRecipe = deleteRecipe;
+// Get all recipes
+const getAllRecipes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // 1) Fetch all recipes from Supabase
+        const { data, error } = yield supabase_1.default
+            .from('recipes')
+            .select('*');
+        // 2) Check for errors
+        if (error || !data) {
+            console.error('Error fetching recipes:', error);
+            res.status(500).json({
+                status: 'error',
+                message: 'Error fetching recipes'
+            });
+            return;
+        }
+        // 3) Check if recipes were found
+        if (data.length === 0) {
+            res.status(404).json({
+                status: 'fail',
+                message: 'No recipes found'
+            });
+            return;
+        }
+        // 4) Return the recipes
+        res.status(200).json({
+            status: 'success',
+            results: data.length,
+            data: {
+                recipes: data
+            }
+        });
+    }
+    catch (err) {
+        console.error('Error:', err);
+        res.status(500).json({
+            status: 'error',
+            message: 'Something went wrong'
+        });
+    }
+});
+exports.getAllRecipes = getAllRecipes;

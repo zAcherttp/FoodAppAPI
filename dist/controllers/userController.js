@@ -691,7 +691,8 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 console.error('Error deleting user recipes:', recipesDeleteError);
                 // Continue anyway as we want to delete the user
             }
-        } // 5b) Delete notifications where user is the recipient
+        }
+        // 5b) Delete notifications where user is the recipient
         const { error: recipientNotificationsError } = yield supabase_1.default
             .from('notifications')
             .delete()

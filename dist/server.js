@@ -24,7 +24,6 @@ const recipeRoutes_1 = __importDefault(require("./routes/recipeRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const commentRoutes_1 = __importDefault(require("./routes/commentRoutes"));
 const ratingRoutes_1 = __importDefault(require("./routes/ratingRoutes"));
-const aiController_1 = require("./controllers/aiController");
 const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
 // Load environment variables
 dotenv_1.default.config();
