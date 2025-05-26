@@ -166,6 +166,7 @@ export const generateSearchQueryFromPromptAndSearchRecipes = async (
 
     res.status(200).json({
       success: true,
+      searchQuery: searchQuery,
       data: result,
     });
   } catch (error: any) {

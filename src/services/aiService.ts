@@ -613,13 +613,13 @@ Format trả về:
                 Quy tắc:
                 - Sử dụng tối đa các nguyên liệu có thể suy ra từ mô tả
                 - Có thể thêm các nguyên liệu cơ bản khác như muối, tiêu, dầu ăn, nước
-                - Tạo các món ăn đa dạng (có thể là món chính, món phụ, món canh)
-                - Hướng dẫn phải chi tiết, dễ hiểu
+                - Tạo món ăn phù hợp với bữa ăn nếu có được thông tin từ prompt (có thể là món chính, món phụ, món canh)
 
                 Format trả về:
                 - title: Tên món ăn (tiếng Việt)
-                - ingredients: Danh sách nguyên liệu
-                - instructions: Các bước thực hiện chi tiết.`,
+                - ingredients: Danh sách nguyên liệu không bao gồm định lượng
+                - instructions: Các bước thực hiện chỉ bao gồm các từ khoá như chiên, hầm, nướng, hấp, ...
+                - time: Thời gian nấu (ví dụ: "30 phút", "1 giờ 15 phút") nếu có, mặc định là "999 phút" nếu không xác định.`,
         },
       ],
     };
@@ -653,7 +653,6 @@ Format trả về:
           title: parsed.recipes[0]?.title || "",
           ingredients: parsed.recipes[0]?.ingredients || [],
           instructions: parsed.recipes[0]?.instructions || [],
-          time: parsed.recipes[0]?.time || "",
         };
         return query;
       }
@@ -661,7 +660,6 @@ Format trả về:
         title: "",
         ingredients: [],
         instructions: [],
-        time: "",
       };
     } catch (error: any) {
       console.error("Recipe generation error:", error.message);
