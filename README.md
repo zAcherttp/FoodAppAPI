@@ -1,137 +1,257 @@
 # NT118.P22 FoodApp - API
 
 ## Overview
-This repository contains a Node.js API with TypeScript that implements a basic user authentication system for the NT118.P22 Mobile App Development course. The API provides secure user management with features like registration, login, session management, password reset, and multi-device session handling.
+
+This repository contains a comprehensive Node.js API with TypeScript for the NT118.P22 Mobile App Development course. The API provides a complete food recipe platform with user authentication, recipe management, social features (comments and ratings), real-time notifications, and AI-powered recipe search and suggestions.
 
 ## Features
 
-### User Authentication
-- Sign up with name, email, and password
-- Login with email and password
-- JWT-based authentication
+### User Authentication & Management
+
+- User registration and login with JWT authentication
 - Secure password hashing with bcrypt
-- Session management across multiple devices
+- Multi-device session management
+- Password reset via email with OTP verification
+- User profile management with avatar upload
+- Account deletion with data cleanup
 
-### Session Management
-- Track active user sessions with device information
-- View all active sessions for a user
-- Invalidate specific sessions (logout from specific devices)
-- Automatic cleanup of expired sessions
+### Recipe Management
 
-### Password Management
-- Forgot password functionality
-- Secure password reset via email with time-limited tokens
+- Create, read, update, and delete recipes
+- Recipe image upload and management
+- Search recipes by title, author, or ingredients
+- Get latest, random, and all recipes
+- Save/unsave recipes to personal collection
+- Recipe categorization with tags
 
-### Security
-- Token-based authentication with JWT
-- Password hashing with bcrypt
-- Session tracking with IP and user agent information
-- Token validation and session expiration
+### Social Features
+
+- Comment system for recipes
+- Like/dislike comments
+- Recipe rating system (1-5 stars)
+- Real-time notifications for recipe interactions
+- User-generated content management
+
+### AI-Powered Features
+
+- Vector-based recipe search using embeddings
+- Image-to-ingredients recognition
+- AI recipe suggestions based on available ingredients
+- Intelligent recipe recommendations using Gemini AI
+- Natural language recipe queries
+
+### Real-time Features
+
+- Socket.IO integration for live notifications
+- Real-time updates for comments and ratings
+- User presence and activity tracking
+
+### Security & Performance
+
+- JWT-based authentication with session tracking
+- Input validation and sanitization
+- File upload security with image optimization
+- Rate limiting and error handling
+- Automatic session cleanup
 
 ## Tech Stack
-- Node.js - JavaScript runtime
-- Express - Web framework
-- TypeScript - Type safety
-- Supabase - Database for storing user data and sessions
-- Resend - Email delivery service
+
+- **Runtime**: Node.js with TypeScript
+- **Framework**: Express.js
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: JWT with bcrypt
+- **File Storage**: Multer with Sharp for image processing
+- **AI Services**: Google Gemini AI, Hugging Face Transformers
+- **Real-time**: Socket.IO
+- **Email**: Resend service
+- **Vector Search**: Snowflake Arctic embeddings
 
 ## Project Structure
+
 ```
 FoodAppAPI/
 ├── src/
 │   ├── config/
-│   │   └── supabase.ts          # Supabase client configuration
+│   │   ├── supabase.ts          # Supabase client configuration
+│   │   └── gemini.ts            # Gemini AI configuration
 │   ├── controllers/
-│   │   └── authController.ts    # Authentication logic
+│   │   ├── authController.ts    # Authentication logic
+│   │   ├── userController.ts    # User management
+│   │   ├── recipeController.ts  # Recipe CRUD operations
+│   │   ├── recipeControllerBridge.ts # Bridge for legacy routes
+│   │   ├── commentController.ts # Comment management
+│   │   ├── ratingController.ts  # Rating system
+│   │   ├── notificationController.ts # Notification system
+│   │   └── aiController.ts      # AI-powered features
 │   ├── middleware/
-│   │   └── authMiddleware.ts    # Authentication protection middleware
+│   │   ├── authMiddleware.ts    # Authentication protection
+│   │   └── fileUpload.ts       # File upload handling
 │   ├── routes/
-│   │   └── authRoutes.ts        # Authentication API routes
+│   │   ├── authRoutes.ts        # Authentication endpoints
+│   │   ├── userRoutes.ts        # User management endpoints
+│   │   ├── recipeRoutes.ts      # Recipe endpoints
+│   │   ├── commentRoutes.ts     # Comment endpoints
+│   │   ├── ratingRoutes.ts      # Rating endpoints
+│   │   ├── notificationRoutes.ts # Notification endpoints
+│   │   └── aiRoutes.ts          # AI endpoints
+│   ├── services/
+│   │   ├── emailService.ts      # Email service
+│   │   ├── socketService.ts     # Real-time notifications
+│   │   └── aiService.ts         # AI recipe assistant
 │   ├── types/
 │   │   └── index.ts             # TypeScript type definitions
 │   ├── utils/
-│   │   └── emailService.ts      # Email service for password reset
+│   │   └── dataNormalization.ts # Data processing utilities
 │   └── server.ts                # Express app setup and server startup
+├── public/                      # Static files and uploads
+├── docs/
+│   ├── API_ENDPOINTS.md         # API endpoint documentation
+│   └── DATABASE_SCHEMA.md       # Database schema documentation
+├── implementation-guide.md      # Feature integration guide
 ├── package.json                 # Project dependencies
 └── tsconfig.json                # TypeScript configuration
 ```
 
-## API Endpoints
+## Documentation
 
-### Authentication
-- `POST /api/auth/signup` - Register a new user
-- `POST /api/auth/login` - Login and create a session
-- `POST /api/auth/logout` - Logout and invalidate current session
-- `POST /api/auth/forgot-password` - Request password reset email
-- `PATCH /api/auth/reset-password/:token` - Reset password with token
-
-### User Profile
-- `GET /api/auth/me` - Get current user profile
-
-### Session Management
-- `GET /api/auth/sessions` - Get all active sessions for current user
-- `DELETE /api/auth/sessions/:sessionId` - Invalidate a specific session
+- **API Endpoints**: [API_ENDPOINTS.md](docs/ENDPOINTS.md)
+- **Database Schema**: [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)
+- **Implementation Guide**: [implementation-guide.md](docs/implementation-guide.md)
 
 ## Setup and Configuration
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- pnpm package manager
+- Supabase account
+- Google AI API key
+- Email service (Resend) account
+
+### Installation
+
 1. Clone the repository
-2. Install dependencies with `pnpm i`
-3. Create a `.env` file with the following variables:
+
+```bash
+git clone <repository-url>
+cd FoodAppAPI
 ```
-JWT_SECRET=your_jwt_secret_key_here  # Secret key for signing JWTs
-JWT_EXPIRES_IN=30d                   # JWT token expiration time
 
-PORT=3000                            # API server port
-NODE_ENV=development                 # Environment (development/production)
+2. Install dependencies
 
-SUPABASE_URL=your_supabase_url       # Supabase project URL
-SUPABASE_ANON_KEY=your_anon_key      # Supabase anonymous key
-
-EMAIL_HOST=smtp.example.com          # SMTP server for sending emails
-EMAIL_PORT=465                       # SMTP port
-EMAIL_USERNAME=your_email_username   # SMTP username
-EMAIL_PASSWORD=your_email_password   # SMTP password
-EMAIL_FROM=noreply@example.com       # Sender email address
-
-SESSION_CLEANUP_INTERVAL=1440        # Interval in minutes for cleaning expired sessions
+```bash
+pnpm install
 ```
-4. Start the development server with `pnpm dev`
 
+3. Create environment file
 
-## Database Schema
-The API uses Supabase with the following tables:
+```bash
+cp .env.example .env
+```
 
-### users
+4. Configure environment variables in `.env`:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | string | Primary key |
-| name | string | User's full name |
-| email | string | User's email address (unique) |
-| password | string | Hashed password |
-| password_reset_token | string \| null | Token for password reset |
-| password_reset_expires | string \| null | Expiration timestamp for reset token |
-| created_at | string \| null | Account creation timestamp |
-| updated_at | string \| null | Last update timestamp |
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=development
 
-### sessions
+# JWT Configuration
+JWT_SECRET=your_super_secret_jwt_key_here
+JWT_EXPIRES_IN=90d
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | string | Primary key |
-| user_id | string | Foreign key to users.id |
-| token | string \| null | JWT token |
-| user_agent | string \| null | Browser/device information |
-| ip_address | string \| null | User's IP address |
-| is_valid | boolean \| null | Session validity status |
-| expires_at | string | Session expiration timestamp |
-| created_at | string \| null | Session creation timestamp |
-| updated_at | string \| null | Last update timestamp |
+# Supabase Configuration
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
 
-#### Relationships
-- `sessions.user_id` references `users.id` (many-to-one)
+# Email Service (Resend)
+RESEND_API_KEY=your_resend_api_key
+EMAIL_FROM=noreply@yourdomain.com
 
-## Testing
-The API can be tested using Postman with test scripts to verify successful authentication and check response data format.
+# Google AI Configuration
+GEMINI_API_KEY=your_gemini_api_key
+
+# Session Management
+SESSION_CLEANUP_INTERVAL=1440  # minutes
+```
+
+5. Set up database
+
+- Create a Supabase project
+- Run the database migrations (see [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md))
+- Enable Row Level Security (RLS) policies as needed
+
+6. Start development server
+
+```bash
+pnpm dev
+```
+
+The API will be available at `http://localhost:3000`
+
+## AI Features
+
+### Vector Search
+
+- Uses Snowflake Arctic embeddings for semantic recipe search
+- Supports natural language queries
+- Implements similarity-based matching
+
+### Image Recognition
+
+- Extracts ingredients from food images
+- Suggests recipes based on identified ingredients
+- Uses Google Gemini Vision API
+
+### Recipe Generation
+
+- AI-powered recipe suggestions
+- Customizable based on available ingredients
+
+## Testing & Development
+
+### Running Tests
+
+```bash
+pnpm test
+```
+
+### Development Commands
+
+```bash
+pnpm dev          # Start development server
+pnpm build        # Build for production
+pnpm start        # Start production server
+```
 
 ## Deployment
-This API can be deployed to any Node.js hosting platform like Heroku, Vercel, or a custom server. Make sure to set all required environment variables on the hosting platform.
+
+### Environment Setup
+
+1. Set all required environment variables
+2. Configure database with proper indexes and RLS policies
+3. Set up file storage for recipe images and avatars
+4. Configure email service for password resets
+
+### Production Considerations
+
+- Enable HTTPS for secure JWT transmission
+- Set up proper CORS policies
+- Configure rate limiting
+- Monitor AI API usage and costs
+- Set up logging and error tracking
+- Configure automated backups
+
+### Hosting Platforms
+
+- **Database**: Supabase (managed PostgreSQL with vector support)
+- **File Storage**: Supabase Storage or AWS S3
+- **Email**: Resend or SendGrid
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request

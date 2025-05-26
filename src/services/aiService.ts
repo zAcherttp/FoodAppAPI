@@ -511,7 +511,6 @@ Quy tắc:
 - Tạo các món ăn đa dạng (có thể là món chính, món phụ, món canh)
 - Thời gian nấu phải thực tế và chính xác
 - Hướng dẫn phải chi tiết, dễ hiểu
-- Tên món ăn phải hấp dẫn và phù hợp với văn hóa Việt Nam
 
 Format trả về:
 - title: Tên món ăn (tiếng Việt)
@@ -566,6 +565,104 @@ Format trả về:
       }
 
       return [];
+    } catch (error: any) {
+      console.error("Recipe generation error:", error.message);
+      throw new Error(`Failed to generate recipes: ${error.message}`);
+    }
+  }
+
+  async getSearchQueryByPrompt(prompt: string): Promise<SearchQuery> {
+    const config = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        required: ["recipes"],
+        properties: {
+          recipes: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              required: ["title", "ingredients", "instructions", "time"],
+              properties: {
+                title: {
+                  type: Type.STRING,
+                },
+                ingredients: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.STRING,
+                  },
+                },
+                instructions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.STRING,
+                  },
+                },
+                time: {
+                  type: Type.STRING,
+                },
+              },
+            },
+          },
+        },
+      },
+      systemInstruction: [
+        {
+          text: `Bạn là một đầu bếp chuyên nghiệp với nhiều năm kinh nghiệm. Hãy tạo ra câu truy xuất công thức nấu ăn dựa trên mô tả được cung cấp.
+                Quy tắc:
+                - Sử dụng tối đa các nguyên liệu có thể suy ra từ mô tả
+                - Có thể thêm các nguyên liệu cơ bản khác như muối, tiêu, dầu ăn, nước
+                - Tạo các món ăn đa dạng (có thể là món chính, món phụ, món canh)
+                - Hướng dẫn phải chi tiết, dễ hiểu
+
+                Format trả về:
+                - title: Tên món ăn (tiếng Việt)
+                - ingredients: Danh sách nguyên liệu
+                - instructions: Các bước thực hiện chi tiết.`,
+        },
+      ],
+    };
+
+    const model = "gemini-2.0-flash-lite";
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Hãy tạo câu truy xuất công thức nấu ăn từ mô tả sau: ${prompt}`,
+          },
+        ],
+      },
+    ];
+
+    try {
+      const response = await gemini.models.generateContent({
+        model,
+        config,
+        contents,
+      });
+
+      const result = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (result) {
+        const parsed = JSON.parse(result);
+
+        // Convert to Recipe format and add required fields
+        const query: SearchQuery = {
+          title: parsed.recipes[0]?.title || "",
+          ingredients: parsed.recipes[0]?.ingredients || [],
+          instructions: parsed.recipes[0]?.instructions || [],
+          time: parsed.recipes[0]?.time || "",
+        };
+        return query;
+      }
+      return {
+        title: "",
+        ingredients: [],
+        instructions: [],
+        time: "",
+      };
     } catch (error: any) {
       console.error("Recipe generation error:", error.message);
       throw new Error(`Failed to generate recipes: ${error.message}`);

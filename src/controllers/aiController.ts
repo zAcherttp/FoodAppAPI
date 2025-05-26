@@ -138,3 +138,42 @@ export const extractIngredientsFromImageAndSuggestRecipe = async (
     });
   }
 };
+
+export const generateSearchQueryFromPromptAndSearchRecipes = async (
+  req: RequestWithUser,
+  res: Response
+): Promise<void> => {
+  try {
+    const { prompt, searchOptions } = req.body;
+
+    // Validate required fields
+    if (!prompt) {
+      res.status(400).json({
+        success: false,
+        message: "Prompt is required",
+      });
+      return;
+    }
+
+    // Generate search query from prompt
+    const searchQuery = await assistant.getSearchQueryByPrompt(prompt);
+
+    // Perform RAG search
+    const result = await assistant.vectorSearchRecipes(
+      searchQuery,
+      searchOptions
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error("Generate search query error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate search query and search recipes",
+      error: error.message,
+    });
+  }
+};

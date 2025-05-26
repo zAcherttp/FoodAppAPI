@@ -19,5 +19,10 @@ router.post(
   upload.single("image"),
   aiController.extractIngredientsFromImageAndSuggestRecipe
 );
+router.post(
+  "/search-recipe-by-prompt",
+  authMiddleware.protect,
+  aiController.generateSearchQueryFromPromptAndSearchRecipes
+);
 
 export default router;
