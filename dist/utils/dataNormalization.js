@@ -106,6 +106,9 @@ exports.extractCommentInteractions = extractCommentInteractions;
  * Normalizes recipe title
  */
 const normalizeTitle = (title) => {
+    if (!title) {
+        return '';
+    }
     return title
         .toLowerCase()
         .trim()
@@ -116,6 +119,9 @@ const normalizeTitle = (title) => {
  */
 const normalizeIngredients = (ingredients) => {
     // Implement normalization logic
+    if (!ingredients || !Array.isArray(ingredients)) {
+        return [];
+    }
     return ingredients.map(ing => {
         // Parse ingredient into quantity, unit, name
         // Standardize units
@@ -128,6 +134,9 @@ const normalizeIngredients = (ingredients) => {
  */
 const normalizeInstructions = (instructions) => {
     // Implement normalization logic
+    if (!instructions || !Array.isArray(instructions)) {
+        return [];
+    }
     return instructions.map(inst => {
         // Parse instruction into steps
         // Standardize format
@@ -139,6 +148,9 @@ const normalizeInstructions = (instructions) => {
  * Normalizes categories/tags
  */
 const normalizeTags = (tags) => {
+    if (!tags || !Array.isArray(tags)) {
+        return [];
+    }
     return tags.map(cat => {
         // Standardize category names
         return cat.toLowerCase().trim();

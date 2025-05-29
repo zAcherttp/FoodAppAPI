@@ -25,6 +25,7 @@ const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const commentRoutes_1 = __importDefault(require("./routes/commentRoutes"));
 const ratingRoutes_1 = __importDefault(require("./routes/ratingRoutes"));
 const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
+const aiRoutes_1 = __importDefault(require("./routes/aiRoutes"));
 // Load environment variables
 dotenv_1.default.config();
 // Create and configure Express app
@@ -37,15 +38,16 @@ const createServer = () => {
     app.use((0, cors_1.default)());
     app.use(express_1.default.json());
     app.use(express_1.default.urlencoded({ extended: true }));
-    app.use(express_1.default.static('public'));
-    app.use('/api/auth', authRoutes_1.default);
-    app.use('/api/recipes', recipeRoutes_1.default);
-    app.use('/api/users', userRoutes_1.default);
-    app.use('/api/comments', commentRoutes_1.default);
-    app.use('/api/ratings', ratingRoutes_1.default);
-    app.use('/api/notifications', notificationRoutes_1.default);
-    app.get('/', (req, res) => {
-        res.send('API is running');
+    app.use(express_1.default.static("public"));
+    app.use("/api/auth", authRoutes_1.default);
+    app.use("/api/recipes", recipeRoutes_1.default);
+    app.use("/api/users", userRoutes_1.default);
+    app.use("/api/comments", commentRoutes_1.default);
+    app.use("/api/ratings", ratingRoutes_1.default);
+    app.use("/api/notifications", notificationRoutes_1.default);
+    app.use("/api/ai", aiRoutes_1.default);
+    app.get("/", (req, res) => {
+        res.send("API is running");
     });
     return { app, server };
 };
@@ -54,41 +56,39 @@ const cleanupExpiredSessions = () => __awaiter(void 0, void 0, void 0, function*
     try {
         // First invalidate expired sessions
         const { error: invalidateError } = yield supabase_1.default
-            .from('sessions')
+            .from("sessions")
             .update({ is_valid: false })
-            .lt('expires_at', new Date().toISOString())
-            .eq('is_valid', true);
+            .lt("expires_at", new Date().toISOString())
+            .eq("is_valid", true);
         if (invalidateError) {
-            console.error('Error invalidating expired sessions:', invalidateError);
+            console.error("Error invalidating expired sessions:", invalidateError);
             return;
         }
         // Then delete the invalidated sessions
         const { error } = yield supabase_1.default
-            .from('sessions')
+            .from("sessions")
             .delete()
-            .eq('is_valid', false);
+            .eq("is_valid", false);
         if (error) {
-            console.error('Error cleaning up expired sessions:', error);
+            console.error("Error cleaning up expired sessions:", error);
         }
         else {
-            console.log('Expired sessions cleaned up successfully');
+            console.log("Expired sessions cleaned up successfully");
         }
     }
     catch (err) {
-        console.error('Session cleanup error:', err);
+        console.error("Session cleanup error:", err);
     }
 });
 // Start server only if this file is run directly (not imported)
 if (require.main === module) {
     const { server } = (0, exports.createServer)();
     const PORT = process.env.PORT || 3000;
-    const cleanupInterval = parseInt(process.env.SESSION_CLEANUP_INTERVAL || '1440'); // Default: once a day (in minutes)
+    const cleanupInterval = parseInt(process.env.SESSION_CLEANUP_INTERVAL || "1440"); // Default: once a day (in minutes)
     setInterval(cleanupExpiredSessions, cleanupInterval * 60 * 1000);
     server.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
         // Run initial cleanup
         cleanupExpiredSessions();
-        // const recipeRAG = new RecipeVectorDB();
-        // recipeRAG.processExistingRecipes();
     });
 }

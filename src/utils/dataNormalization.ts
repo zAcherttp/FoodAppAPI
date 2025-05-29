@@ -31,7 +31,7 @@ export const convertToNewRecipeFormat = (oldRecipe: any): Recipe => {
     tags: oldRecipe.tags,
     time: oldRecipe.time,
   };
-  
+
   return newRecipe;
 };
 
@@ -42,7 +42,7 @@ export const extractCommentsFromRecipe = (recipe: any): Comment[] => {
   if (!recipe.comments || !Array.isArray(recipe.comments) || recipe.comments.length === 0) {
     return [];
   }
-  
+
   return recipe.comments.map((comment: any) => ({
     id: comment.id,
     recipe_id: recipe.id,
@@ -62,7 +62,7 @@ export const extractRatingsFromRecipe = (recipe: any): Rating[] => {
   if (!recipe.rating || !Array.isArray(recipe.rating) || recipe.rating.length === 0) {
     return [];
   }
-  
+
   return recipe.rating.map((rating: any) => ({
     id: rating.id,
     recipe_id: recipe.id,
@@ -80,9 +80,9 @@ export const extractCommentInteractions = (recipe: any): CommentInteraction[] =>
   if (!recipe.comments || !Array.isArray(recipe.comments) || recipe.comments.length === 0) {
     return [];
   }
-  
+
   const interactions: CommentInteraction[] = [];
-  
+
   recipe.comments.forEach((comment: any) => {
     // Extract likes
     if (comment.likedBy && Array.isArray(comment.likedBy)) {
@@ -96,7 +96,7 @@ export const extractCommentInteractions = (recipe: any): CommentInteraction[] =>
         });
       });
     }
-    
+
     // Extract dislikes
     if (comment.dislikedBy && Array.isArray(comment.dislikedBy)) {
       comment.dislikedBy.forEach((userId: string) => {
@@ -110,14 +110,17 @@ export const extractCommentInteractions = (recipe: any): CommentInteraction[] =>
       });
     }
   });
-  
+
   return interactions;
 };
 
 /**
  * Normalizes recipe title
  */
-const normalizeTitle = (title: string): string => {
+const normalizeTitle = (title: string | undefined): string => {
+  if (!title) {
+    return '';
+  }
   return title
     .toLowerCase()
     .trim()
@@ -127,8 +130,11 @@ const normalizeTitle = (title: string): string => {
 /**
  * Normalizes ingredients list
  */
-const normalizeIngredients = (ingredients: string[]): string[] => {
+const normalizeIngredients = (ingredients: string[] | undefined): string[] => {
   // Implement normalization logic
+  if (!ingredients || !Array.isArray(ingredients)) {
+    return [];
+  }
   return ingredients.map(ing => {
     // Parse ingredient into quantity, unit, name
     // Standardize units
@@ -140,21 +146,27 @@ const normalizeIngredients = (ingredients: string[]): string[] => {
 /**
  * Normalizes instructions
  */
-const normalizeInstructions = (instructions: string[]): string[] => {
-    // Implement normalization logic
-    return instructions.map(inst => {
-        // Parse instruction into steps
-        // Standardize format
-        // Return normalized format
-        return inst.toLowerCase().trim();
-    });
+const normalizeInstructions = (instructions: string[] | undefined): string[] => {
+  // Implement normalization logic
+  if (!instructions || !Array.isArray(instructions)) {
+    return [];
+  }
+  return instructions.map(inst => {
+    // Parse instruction into steps
+    // Standardize format
+    // Return normalized format
+    return inst.toLowerCase().trim();
+  });
 };
 
 /**
  * Normalizes categories/tags
  */
 
-const normalizeTags = (tags: string[]): string[] => {
+const normalizeTags = (tags: string[] | undefined): string[] => {
+  if (!tags || !Array.isArray(tags)) {
+    return [];
+  }
   return tags.map(cat => {
     // Standardize category names
     return cat.toLowerCase().trim();

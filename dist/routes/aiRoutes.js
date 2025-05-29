@@ -37,16 +37,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const authController = __importStar(require("../controllers/authController"));
+const aiController = __importStar(require("../controllers/aiController"));
 const authMiddleware = __importStar(require("../middleware/authMiddleware"));
+const fileUpload_1 = require("../middleware/fileUpload");
 const router = express_1.default.Router();
-// Authentication routes
-router.post("/signup", authController.signup);
-router.post("/login", authController.login);
-router.post("/logout", authMiddleware.protect, authController.logout);
-router.post("/forgot-password", authController.forgotPassword);
-router.post("/verify-otp/", authController.verifyOtp);
-router.patch("/reset-password", authController.resetPassword);
-// Get all active sessions for current user
-router.get("/sessions", authMiddleware.protect, authController.getUserSessions);
+// AI routes
+router.post("/search", authMiddleware.protect, aiController.searchRecipes);
+router.post("/search-image", authMiddleware.protect, fileUpload_1.upload.single("image"), aiController.extractIngredientsFromImageAndSearchRecipes);
+router.post("/suggest-recipes", authMiddleware.protect, fileUpload_1.upload.single("image"), aiController.extractIngredientsFromImageAndSuggestRecipe);
+router.post("/search-recipe-by-prompt", authMiddleware.protect, aiController.generateSearchQueryFromPromptAndSearchRecipes);
 exports.default = router;
